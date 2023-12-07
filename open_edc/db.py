@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 

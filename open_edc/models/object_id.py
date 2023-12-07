@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Annotated, Any, Callable
 
 from bson import ObjectId

@@ -1,4 +1,4 @@
-from typing import Dict
+from __future__ import annotations
 
 from open_edc.api.deps import MongoClient, logger
 from open_edc.core.config import config
@@ -8,7 +8,7 @@ router = APIRouter(tags=["Health"], prefix=config.V1_API_PREFIX)
 
 
 @router.get("/health", include_in_schema=False)
-async def health(mongo_client: MongoClient) -> Dict[str, str]:
+async def health(mongo_client: MongoClient) -> dict[str, str]:
     status = {"system": "healthy"}
     logger.info("Checking MongoDb health")
     try:

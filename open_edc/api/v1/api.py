@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from open_edc.api.v1.routes import health
 from open_edc.core.utils import APIRouter
 
