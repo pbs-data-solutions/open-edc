@@ -5,15 +5,16 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from open_edc.api.deps import logger
 from open_edc.api.v1.api import api_router
+from open_edc.db import init_db
 
 
 @asynccontextmanager  # type: ignore
 async def lifespan(app: FastAPI) -> AsyncGenerator:
-    # load beanie models
-    # await init_db()
+    logger.info("Initializing the database")
+    await init_db()
     yield
-    # cleanup
 
 
 app = FastAPI(lifespan=lifespan)

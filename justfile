@@ -27,5 +27,11 @@
 @ruff-format:
   poetry run ruff format open_edc tests
 
-@test:
+@start-db:
+  docker compose up -d db
+
+@test: start-db && docker-stop
   poetry run pytest -x
+
+@test-ci: start-db && docker-stop
+  poetry run pytest
