@@ -1,4 +1,6 @@
-from open_edc.main import main  #  pragma: no cover
+import uvicorn
+
+from open_edc.main import app  #  pragma: no cover
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    uvicorn.run(app)
