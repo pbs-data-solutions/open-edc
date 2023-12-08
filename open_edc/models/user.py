@@ -29,7 +29,6 @@ class UserNoPassword(BaseModel):
     user_name: str
     first_name: str
     last_name: str
-    country: str | None = None
 
     class Settings:
         projection = {
@@ -47,7 +46,6 @@ class UserUpdateMe(CamelBase):
     first_name: str
     last_name: str
     security_question_answer: str
-    country: str | None = None
 
 
 class UserUpdate(UserUpdateMe):
