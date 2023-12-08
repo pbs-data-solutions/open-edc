@@ -122,7 +122,7 @@ async def get_users() -> list[UserNoPassword]:
     return [UserNoPassword(**x.model_dump()) for x in users]
 
 
-async def get_user(user_id: ObjectId | PydanticObjectId) -> User | None:
+async def get_user(user_id: ObjectId | PydanticObjectId) -> UserNoPassword | None:
     return await User.find_one(User.id == user_id, projection_model=UserNoPassword)
 
 

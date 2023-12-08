@@ -17,7 +17,7 @@ from open_edc.core.config import Settings, config
 from open_edc.core.security import ALGORITHM
 from open_edc.db import db_client
 from open_edc.models.token import TokenPayload
-from open_edc.models.user import User
+from open_edc.models.user import UserNoPassword
 from open_edc.services.user_service import get_user
 
 logging.basicConfig(format="%asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s")
@@ -31,7 +31,7 @@ def get_config() -> Settings:
     return config
 
 
-async def get_current_user(token: Annotated[str, Depends(_oauth2_scheme)]) -> User:
+async def get_current_user(token: Annotated[str, Depends(_oauth2_scheme)]) -> UserNoPassword:
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[ALGORITHM])
         token_data = TokenPayload(**payload)
@@ -63,5 +63,5 @@ def get_db_client() -> AsyncIOMotorClient:  # type: ignore
 
 
 Config = Annotated[Settings, Depends(get_config)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUser = Annotated[UserNoPassword, Depends(get_current_user)]
 MongoClient = Annotated[AsyncIOMotorClient, Depends(get_db_client)]  # type: ignore
