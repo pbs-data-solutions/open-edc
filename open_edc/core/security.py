@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
@@ -17,9 +17,11 @@ def create_access_token(
     subject: PydanticObjectId | str | dict[str, Any], expires_delta: timedelta | None = None
 ) -> str:
     if expires_delta:
-        expire = datetime.now(tz=UTC) + expires_delta
+        expire = datetime.now(tz=timezone.utc) + expires_delta
     else:
-        expire = datetime.now(tz=UTC) + timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(tz=timezone.utc) + timedelta(
+            minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
