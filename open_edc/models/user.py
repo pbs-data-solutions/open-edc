@@ -4,10 +4,16 @@ from datetime import datetime
 
 from beanie import Document
 from camel_converter.pydantic_base import CamelBase
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pymongo import ASCENDING, IndexModel
 
 from open_edc.models.object_id import ObjectIdStr
+
+
+class _UserBase(CamelBase):
+    user_name: str
+    first_name: str
+    last_name: str
 
 
 class PasswordReset(CamelBase):
@@ -16,19 +22,15 @@ class PasswordReset(CamelBase):
     new_password: str
 
 
-class UserCreate(CamelBase):
-    user_name: str
-    first_name: str
-    last_name: str
+class UserCreate(_UserBase):
     password: str
     security_question_answer: str
 
 
-class UserNoPassword(BaseModel):
+class UserNoPassword(_UserBase):
     id: ObjectIdStr
-    user_name: str
-    first_name: str
-    last_name: str
+    is_active: bool
+    is_admin: bool
 
     class Settings:
         projection = {
@@ -36,15 +38,14 @@ class UserNoPassword(BaseModel):
             "user_name": "$user_name",
             "first_name": "$first_name",
             "last_name": "$last_name",
+            "is_active": "$is_active",
+            "is_admin": "$is_admin",
         }
 
 
-class UserUpdateMe(CamelBase):
+class UserUpdateMe(_UserBase):
     id: ObjectIdStr
     password: str
-    user_name: str
-    first_name: str
-    last_name: str
     security_question_answer: str
 
 

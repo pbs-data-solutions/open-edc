@@ -17,8 +17,8 @@ async def test_get_access_token(user_data, test_client):
     response = await test_client.post("login/access-token", data=login_data)
     tokens = response.json()
     assert response.status_code == 200
-    assert "accessToken" in tokens
-    assert tokens["accessToken"]
+    assert "access_token" in tokens
+    assert tokens["access_token"]
 
 
 async def test_get_access_token_user_not_found(test_client):

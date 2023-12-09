@@ -33,5 +33,8 @@
 @test: start-db && docker-stop
   poetry run pytest -x
 
+@test-lf: start-db && docker-stop
+  poetry run pytest -x --lf
+
 @test-ci: start-db && docker-stop
   poetry run pytest
