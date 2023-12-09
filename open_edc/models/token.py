@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from camel_converter.pydantic_base import CamelBase
+from pydantic import BaseModel
 
 
-class Token(CamelBase):
+class Token(BaseModel):
     access_token: str
     token_type: str
 
 
-class TokenPayload(CamelBase):
+class TokenPayload(BaseModel):
     sub: str | None = None

@@ -31,6 +31,37 @@ def get_config() -> Settings:
     return config
 
 
+async def get_current_admin_user(token: Annotated[str, Depends(_oauth2_scheme)]) -> UserNoPassword:
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[ALGORITHM])
+        token_data = TokenPayload(**payload)
+    except (PyJWTError, ValidationError) as e:
+        logger.info("Could not validate credentials: %s", e)
+        raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials")
+
+    try:
+        oid = ObjectId(token_data.sub)
+    except InvalidId:  # pragma: no cover
+        logger.info("%s is not a valid ObjectId", token_data.sub)
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail=f"{token_data.sub} is not a valid ID format"
+        )
+
+    user = await get_user(oid)
+
+    if not user:
+        logger.info("User not found")
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not user.is_admin:
+        logger.info("User is not an admin")
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="User does not have the required permissions"
+        )
+
+    return user
+
+
 async def get_current_user(token: Annotated[str, Depends(_oauth2_scheme)]) -> UserNoPassword:
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[ALGORITHM])
@@ -63,5 +94,6 @@ def get_db_client() -> AsyncIOMotorClient:  # type: ignore
 
 
 Config = Annotated[Settings, Depends(get_config)]
+CurrentAdminUser = Annotated[UserNoPassword, Depends(get_current_admin_user)]
 CurrentUser = Annotated[UserNoPassword, Depends(get_current_user)]
 MongoClient = Annotated[AsyncIOMotorClient, Depends(get_db_client)]  # type: ignore
