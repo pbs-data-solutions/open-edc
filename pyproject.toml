@@ -27,7 +27,7 @@ pre-commit = "3.6.0"
 pytest = "7.4.3"
 pytest-asyncio = "0.21.1"  # pinned to this version because newer version have an issue with the event loop closing early: https://github.com/pytest-dev/pytest-asyncio/issues/708
 pytest-cov = "4.1.0"
-ruff = "0.1.8"
+ruff = "0.1.11"
 tomli = {version = "2.0.1", python = "<3.11"}
 
 [build-system]
