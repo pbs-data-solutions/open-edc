@@ -22,7 +22,7 @@ uvicorn = {version = "0.25.0", extras = ["standard"]}
 
 [tool.poetry.group.dev.dependencies]
 httpx = "0.26.0"
-mypy = "1.7.1"
+mypy = "1.8.0"
 pre-commit = "3.6.0"
 pytest = "7.4.4"
 pytest-asyncio = "0.21.1"  # pinned to this version because newer version have an issue with the event loop closing early: https://github.com/pytest-dev/pytest-asyncio/issues/708
