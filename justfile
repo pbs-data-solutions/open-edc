@@ -1,40 +1,25 @@
-@build-dev:
-  docker build -t open-edc:dev .
+lint:
+  just --justfile {{justfile()}} fmt
+  just --justfile {{justfile()}} clippy
+  just --justfile {{justfile()}} check
 
-@build-prod:
-  docker build -t open-edc:latest --target prod .
+clippy:
+  cargo clippy --all-targets
 
-@dev: && docker-stop
-  -docker compose up open-edc db --build
+check:
+  cargo check --all-targets
 
-@docker-stop:
-  docker compose down
+fmt:
+  cargo fmt --all
 
-@lint:
-  echo mypy
-  just --justfile {{justfile()}} mypy
-  echo ruff
-  just --justfile {{justfile()}} ruff
-  echo ruff-format
-  just --justfile {{justfile()}} ruff-format
+test:
+  cargo test
 
-@mypy:
-  poetry run mypy .
+dev: db
+  cargo watch -x "run -- start"
 
-@ruff:
-  poetry run ruff check .
+db:
+  docker compose up db -d
 
-@ruff-format:
-  poetry run ruff format open_edc tests
-
-@start-db:
-  docker compose up -d db
-
-@test: start-db && docker-stop
-  poetry run pytest -x
-
-@test-lf: start-db && docker-stop
-  poetry run pytest -x --lf
-
-@test-ci: start-db && docker-stop
-  poetry run pytest
+stop-db:
+  docker compose down db
