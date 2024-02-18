@@ -8,8 +8,12 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   RUSTFLAGS: "-D warnings"
-  WORKING_DIR: "my-project"
-  MIN_PYTHON_VERSION: "3.8"
+  DATABASE_ADDRESS: 127.0.0.1
+  DATABASE_PORT: 5432
+  DATABASE_USER: postgres
+  DATABASE_USER_PASSWORD: test_password
+  DATABASE_NAME: open_edc
+  DATABASE_URL: postgresql://postgres:test_password@127.0.0.1:5432/open_edc
 jobs:
   clippy:
     name: Clippy
@@ -21,6 +25,8 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2.7.3
+      - name: Start database
+        run: docker compose up db
       - name: Run cargo clippy
         run: cargo clippy --all-targets -- --deny warnings
   fmt:
