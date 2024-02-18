@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+  "open-edc",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = [
+  "Paul Sanders <paul@pbsdatasolutions.com>",
+]
+description = "Open EDC"
+edition = "2021"
+icense = "MIT"

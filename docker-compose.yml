@@ -1,42 +1,18 @@
 version: "3"
 
 services:
-  open-edc:
-    image: open-edc:dev
-    build:
-      context: .
-    container_name: open-edc
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
-    environment:
-      - MONGO_INITDB_DATABASE=open_edc
-      - MONGO_INITDB_ROOT_USERNAME=mongo
-      - MONGO_INITDB_ROOT_PASSWORD=mongo_password
-      - MONGO_PORT=27017
-      - MONGO_HOST=db
-      - SECRET_KEY=secret
-    volumes:
-      - type: bind
-        source: .
-        target: /open-edc
-        read_only: false
   db:
-    image: mongo:7.0
-    volumes:
-      - db-data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=open_edc
-      - MONGO_INITDB_ROOT_USERNAME=mongo
-      - MONGO_INITDB_ROOT_PASSWORD=mongo_password
+    image: postgres:16
     expose:
-      - 27017
+      - 5432
     ports:
-      - "27017:27017"
+      - 5432:5432
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "test_password"
+      POSTGRES_DB: "open_edc"
+    volumes:
+      - db-data:/var/lib/postgresql/data
 
 volumes:
   db-data:
-
-networks:
-  achievaim:
