@@ -15,4 +15,5 @@ thiserror = "1.0.50"
 tokio = { version = "1.36.0", features = ["full"] }
 
 [dev-dependencies]
-reqwest = "0.11.24"
+http-body-util = "0.1.0"
+tower = { version = "0.4.13", features = ["util"] }

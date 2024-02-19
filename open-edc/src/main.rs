@@ -61,3 +61,30 @@ async fn app() -> Router {
         .merge(health_routes(pool.clone()))
         .with_state(pool)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use http_body_util::BodyExt; // for `collect`
+    use serde_json::{json, Value};
+    use tower::ServiceExt; // for `oneshot`
+
+    #[tokio::test]
+    async fn get_health() {
+        let app = app().await;
+        let response = app
+            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body, json!({ "db": "healthy".to_string(), "server": "healthy".to_string() }));
+    }
+}
