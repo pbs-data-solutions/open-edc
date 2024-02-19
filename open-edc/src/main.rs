@@ -12,8 +12,8 @@ use dotenvy::dotenv;
 
 use crate::api::v1::routes::health::health_routes;
 use crate::cli::{Cli, Command};
-use crate::db::DbClient;
 use crate::config::Config;
+use crate::db::DbClient;
 
 #[tokio::main]
 async fn main() -> Result<()> {
