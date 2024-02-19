@@ -11,4 +11,4 @@ authors = [
 ]
 description = "Open EDC"
 edition = "2021"
-icense = "MIT"
+license = "MIT"
