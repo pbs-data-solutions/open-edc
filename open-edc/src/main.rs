@@ -77,7 +77,12 @@ mod tests {
     async fn get_health() {
         let app = app().await;
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -85,6 +90,9 @@ mod tests {
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(body, json!({ "db": "healthy".to_string(), "server": "healthy".to_string() }));
+        assert_eq!(
+            body,
+            json!({ "db": "healthy".to_string(), "server": "healthy".to_string() })
+        );
     }
 }
