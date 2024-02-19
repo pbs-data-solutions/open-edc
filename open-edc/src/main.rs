@@ -2,6 +2,9 @@ mod api;
 mod cli;
 mod config;
 mod db;
+mod models;
+mod services;
+mod utils;
 
 use std::env;
 
@@ -10,7 +13,7 @@ use axum::{serve, Router};
 use clap::Parser;
 use dotenvy::dotenv;
 
-use crate::api::v1::routes::health::health_routes;
+use crate::api::v1::routes;
 use crate::cli::{Cli, Command};
 use crate::config::Config;
 use crate::db::DbClient;
@@ -62,7 +65,11 @@ async fn app() -> Router {
     let config = Config::new(None);
 
     Router::new()
-        .merge(health_routes(pool.clone(), &config))
+        .merge(routes::organization::organization_routes(
+            pool.clone(),
+            &config,
+        ))
+        .merge(routes::health::health_routes(pool.clone(), &config))
         .with_state(pool)
 }
 
@@ -71,11 +78,12 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        http::{self, Request, StatusCode},
     };
     use http_body_util::BodyExt; // for `collect`
     use serde_json::{json, Value};
     use tower::ServiceExt; // for `oneshot`
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn get_health() {
@@ -98,5 +106,26 @@ mod tests {
             body,
             json!({ "db": "healthy".to_string(), "server": "healthy".to_string() })
         );
+    }
+
+    #[tokio::test]
+    async fn add_organization() {
+        let app = app().await;
+        let name = Uuid::new_v4().to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/api/v1/organization")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({ "name": name })).unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
     }
 }

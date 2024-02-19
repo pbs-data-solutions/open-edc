@@ -1,11 +1,11 @@
 pub struct Config {
-    pub prefix: String,
+    pub api_v1_prefix: String,
 }
 
 impl Config {
     pub fn new(prefix: Option<String>) -> Self {
         Self {
-            prefix: prefix.unwrap_or("/api/v1".to_string()),
+            api_v1_prefix: prefix.unwrap_or("/api/v1".to_string()),
         }
     }
 }
