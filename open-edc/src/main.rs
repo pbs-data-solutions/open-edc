@@ -1,5 +1,6 @@
 mod api;
 mod cli;
+mod config;
 mod db;
 
 use std::env;
@@ -12,6 +13,7 @@ use dotenvy::dotenv;
 use crate::api::v1::routes::health::health_routes;
 use crate::cli::{Cli, Command};
 use crate::db::DbClient;
+use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -57,8 +59,10 @@ async fn app() -> Router {
         .await
         .expect("Unable to connect to the database");
 
+    let config = Config::new(None);
+
     Router::new()
-        .merge(health_routes(pool.clone()))
+        .merge(health_routes(pool.clone(), &config))
         .with_state(pool)
 }
 
@@ -79,7 +83,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/health")
+                    .uri("/api/v1/health")
                     .body(Body::empty())
                     .unwrap(),
             )

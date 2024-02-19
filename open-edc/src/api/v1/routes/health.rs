@@ -7,6 +7,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPool;
 
+use crate::config::Config;
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum HealthStatus {
@@ -21,9 +23,9 @@ struct Health {
     db: HealthStatus,
 }
 
-pub fn health_routes(pool: PgPool) -> Router<PgPool> {
-    let prefix = "/health";
-    Router::new().route(prefix, get(health)).with_state(pool)
+pub fn health_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
+    let prefix = format!("{}/health", config.prefix);
+    Router::new().route(&prefix, get(health)).with_state(pool)
 }
 
 pub async fn health(State(pool): State<PgPool>) -> Response {
