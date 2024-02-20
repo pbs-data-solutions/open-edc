@@ -1,7 +1,8 @@
 use anyhow::{bail, Result};
+use chrono::Utc;
 use sqlx::postgres::PgPool;
 
-use crate::models::organization::{Organization, OrganizationCreate};
+use crate::models::organization::{Organization, OrganizationCreate, OrganizationUpdate};
 
 pub async fn create_organization(
     pool: &PgPool,
@@ -74,4 +75,27 @@ pub async fn get_organizations(pool: &PgPool) -> Result<Vec<Organization>> {
     .await?;
 
     Ok(organizations)
+}
+
+pub async fn update_organization(
+    pool: &PgPool,
+    updated_organization: &OrganizationUpdate,
+) -> Result<Organization> {
+    let updated_org = sqlx::query_as!(
+        Organization,
+        r#"
+            UPDATE organizations
+            SET name = $2, active = $3, date_modified = $4
+            WHERE id = $1
+            RETURNING id, name, active, date_added, date_modified
+        "#,
+        updated_organization.id,
+        updated_organization.name,
+        updated_organization.active,
+        Utc::now(),
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(updated_org)
 }

@@ -75,7 +75,6 @@ async fn app() -> Router {
 mod tests {
     use super::*;
     use crate::models::organization::Organization;
-    use crate::utils::generate_db_id;
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
@@ -113,7 +112,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn add_organization() {
+    async fn create_organization() {
         let app = app().await;
         let name = Uuid::new_v4().to_string();
         let response = app
@@ -135,7 +134,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_organization() {
-        let org_name = generate_db_id();
+        let org_name = Uuid::new_v4().to_string();
         let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
@@ -189,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_organization() {
-        let org_name = generate_db_id();
+        let org_name = Uuid::new_v4().to_string();
         let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
@@ -232,7 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_organizations() {
-        let org_name = generate_db_id();
+        let org_name = Uuid::new_v4().to_string();
         let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
@@ -271,5 +270,58 @@ mod tests {
         println!("{:?}", body);
 
         assert!(body.iter().any(|item| item.name == org_name));
+    }
+
+    #[tokio::test]
+    async fn update_organization() {
+        let org_name = Uuid::new_v4().to_string();
+        let organization = Organization::new(org_name.clone());
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let app = app().await;
+
+        let new_org = sqlx::query_as!(
+            Organization,
+            r#"
+                INSERT INTO organizations(id, name, active, date_added, date_modified)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, name, active, date_added, date_modified
+            "#,
+            organization.id,
+            organization.name,
+            organization.active,
+            organization.date_added,
+            organization.date_modified,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let updated_name = Uuid::new_v4().to_string();
+        let active = false;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri("/api/v1/organization")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(
+                        serde_json::to_vec(
+                            &json!({"id": new_org.id, "name": updated_name, "active": active }),
+                        )
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Organization = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.name, updated_name);
+        assert_eq!(body.active, active);
     }
 }

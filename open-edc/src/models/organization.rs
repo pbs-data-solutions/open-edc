@@ -30,3 +30,11 @@ impl Organization {
 pub struct OrganizationCreate {
     pub name: String,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct OrganizationUpdate {
+    pub id: String,
+    pub name: String,
+    pub active: bool,
+}
