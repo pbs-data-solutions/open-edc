@@ -24,7 +24,7 @@ struct Health {
 }
 
 pub fn health_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
-    let prefix = format!("{}/health", config.prefix);
+    let prefix = format!("{}/health", config.api_v1_prefix);
     Router::new().route(&prefix, get(health)).with_state(pool)
 }
 
