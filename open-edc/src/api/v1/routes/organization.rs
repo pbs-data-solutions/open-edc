@@ -15,7 +15,7 @@ use crate::services::organization;
 pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     let prefix = format!("{}/organization", config.api_v1_prefix);
     Router::new()
-        .route(&format!("{prefix}"), post(create_org))
+        .route(&prefix, post(create_org))
         .with_state(pool.clone())
         .route(&format!("{prefix}/:id"), get(get_organization))
         .with_state(pool.clone())
