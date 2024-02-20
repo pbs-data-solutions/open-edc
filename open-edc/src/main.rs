@@ -75,7 +75,9 @@ async fn app() -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::organization::Organization;
+    use crate::models::organization::{
+        create_organization_service, Organization, OrganizationCreate,
+    };
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
@@ -136,26 +138,12 @@ mod tests {
     #[tokio::test]
     async fn delete_organization() {
         let org_name = Uuid::new_v4().to_string();
-        let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
-
-        let new_org = sqlx::query_as!(
-            Organization,
-            r#"
-                INSERT INTO organizations(id, name, active, date_added, date_modified)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING id, name, active, date_added, date_modified
-            "#,
-            organization.id,
-            organization.name,
-            organization.active,
-            organization.date_added,
-            organization.date_modified,
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let create_org = OrganizationCreate { name: org_name };
+        let new_org = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
 
         let app = app().await;
         let response = app
@@ -190,26 +178,12 @@ mod tests {
     #[tokio::test]
     async fn get_organization() {
         let org_name = Uuid::new_v4().to_string();
-        let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
-
-        let new_org = sqlx::query_as!(
-            Organization,
-            r#"
-                INSERT INTO organizations(id, name, active, date_added, date_modified)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING id, name, active, date_added, date_modified
-            "#,
-            organization.id,
-            organization.name,
-            organization.active,
-            organization.date_added,
-            organization.date_modified,
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let create_org = OrganizationCreate { name: org_name };
+        let new_org = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
 
         let app = app().await;
         let response = app
@@ -227,31 +201,18 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Organization = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(body.name, org_name);
+        assert_eq!(body.name, create_org.name);
     }
 
     #[tokio::test]
     async fn get_organizations() {
         let org_name = Uuid::new_v4().to_string();
-        let organization = Organization::new(org_name.clone());
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
-
-        sqlx::query_as!(
-            Organization,
-            r#"
-                INSERT INTO organizations(id, name, active, date_added, date_modified)
-                VALUES ($1, $2, $3, $4, $5)
-            "#,
-            organization.id,
-            organization.name,
-            organization.active,
-            organization.date_added,
-            organization.date_modified,
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+        let create_org = OrganizationCreate { name: org_name };
+        create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
 
         let app = app().await;
         let response = app
@@ -270,33 +231,19 @@ mod tests {
         let body: Vec<Organization> = serde_json::from_slice(&body).unwrap();
         println!("{:?}", body);
 
-        assert!(body.iter().any(|item| item.name == org_name));
+        assert!(body.iter().any(|item| item.name == create_org.name));
     }
 
     #[tokio::test]
     async fn update_organization() {
         let org_name = Uuid::new_v4().to_string();
-        let organization = Organization::new(org_name.clone());
+        let app = app().await;
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
-        let app = app().await;
-
-        let new_org = sqlx::query_as!(
-            Organization,
-            r#"
-                INSERT INTO organizations(id, name, active, date_added, date_modified)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING id, name, active, date_added, date_modified
-            "#,
-            organization.id,
-            organization.name,
-            organization.active,
-            organization.date_added,
-            organization.date_modified,
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let create_org = OrganizationCreate { name: org_name };
+        let new_org = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
 
         let updated_name = Uuid::new_v4().to_string();
         let active = false;
