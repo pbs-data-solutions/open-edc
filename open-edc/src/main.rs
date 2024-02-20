@@ -75,8 +75,9 @@ async fn app() -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::organization::{
-        create_organization_service, Organization, OrganizationCreate,
+    use crate::{
+        models::organization::{create_organization_service, Organization, OrganizationCreate},
+        utils::generate_db_id,
     };
     use axum::{
         body::Body,
@@ -176,6 +177,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_organization_not_found() {
+        let org_id = generate_db_id();
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri(&format!("/api/v1/organization/{}", &org_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
     async fn get_organization() {
         let org_name = Uuid::new_v4().to_string();
         let db_client = db_client();
@@ -202,6 +221,23 @@ mod tests {
         let body: Organization = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(body.name, create_org.name);
+    }
+
+    #[tokio::test]
+    async fn get_organization_not_found() {
+        let org_id = generate_db_id();
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/organization/{}", &org_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
