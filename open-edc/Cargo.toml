@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.75"
+anyhow = "1.0.80"
 axum = "0.7.4"
 clap = { version = "4.4.11", features = ["derive"] }
 dotenvy = "0.15.7"
