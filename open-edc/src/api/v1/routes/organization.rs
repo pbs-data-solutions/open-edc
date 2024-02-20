@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use sqlx::postgres::PgPool;
@@ -16,6 +16,8 @@ pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     let prefix = format!("{}/organization", config.api_v1_prefix);
     Router::new()
         .route(&prefix, post(create_org))
+        .with_state(pool.clone())
+        .route(&format!("{prefix}/:id"), delete(delete_organization))
         .with_state(pool.clone())
         .route(&format!("{prefix}/:id"), get(get_organization))
         .with_state(pool.clone())
@@ -46,6 +48,32 @@ pub async fn create_org(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GenericMessage {
                         detail: "Error adding organization".to_string(),
+                    }),
+                )
+                    .into_response()
+            }
+        }
+    }
+}
+
+pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    match organization::delete_organization(&pool, &id).await {
+        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Err(e) => {
+            if e.to_string().contains("No organization with id") {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(GenericMessage {
+                        detail: e.to_string(),
+                    })
+                    .into_response(),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(GenericMessage {
+                        detail: "Error deleting organization".to_string(),
                     }),
                 )
                     .into_response()

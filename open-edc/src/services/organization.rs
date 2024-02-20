@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use sqlx::postgres::PgPool;
 
 use crate::models::organization::{Organization, OrganizationCreate};
@@ -26,6 +26,24 @@ pub async fn create_organization(
     .await?;
 
     Ok(added_org)
+}
+
+pub async fn delete_organization(pool: &PgPool, id: &str) -> Result<()> {
+    let result = sqlx::query!(
+        r#"
+            DELETE FROM organizations
+            WHERE id = $1
+        "#,
+        id,
+    )
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() > 0 {
+        Ok(())
+    } else {
+        bail!(format!("No organization with id {id} found"));
+    }
 }
 
 pub async fn get_organization(pool: &PgPool, id: &str) -> Result<Organization> {

@@ -134,6 +134,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_organization() {
+        let org_name = generate_db_id();
+        let organization = Organization::new(org_name.clone());
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+
+        let new_org = sqlx::query_as!(
+            Organization,
+            r#"
+                INSERT INTO organizations(id, name, active, date_added, date_modified)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, name, active, date_added, date_modified
+            "#,
+            organization.id,
+            organization.name,
+            organization.active,
+            organization.date_added,
+            organization.date_modified,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri(&format!("/api/v1/organization/{}", &new_org.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let result = sqlx::query_as!(
+            Organization,
+            r#"
+                SELECT id, name, active, date_added, date_modified
+                FROM organizations
+                WHERE id = $1
+            "#,
+            &new_org.id,
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
     async fn get_organization() {
         let org_name = generate_db_id();
         let organization = Organization::new(org_name.clone());
