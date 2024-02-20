@@ -7,10 +7,15 @@ use axum::{
 };
 use sqlx::postgres::PgPool;
 
-use crate::config::Config;
-use crate::models::messages::GenericMessage;
-use crate::models::organization::{OrganizationCreate, OrganizationUpdate};
-use crate::services::organization;
+use crate::{
+    config::Config,
+    models::messages::GenericMessage,
+    models::organization::{
+        create_organization_service, delete_organization_service, get_organization_service,
+        get_organizations_service, update_organization_service, OrganizationCreate,
+        OrganizationUpdate,
+    },
+};
 
 pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     let prefix = format!("{}/organization", config.api_v1_prefix);
@@ -33,7 +38,7 @@ pub async fn create_org(
     State(pool): State<PgPool>,
     Json(new_organization): Json<OrganizationCreate>,
 ) -> Response {
-    match organization::create_organization(&pool, &new_organization).await {
+    match create_organization_service(&pool, &new_organization).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             if e.to_string().contains("violates unique constraint") {
@@ -61,7 +66,7 @@ pub async fn create_org(
 }
 
 pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
-    match organization::delete_organization(&pool, &id).await {
+    match delete_organization_service(&pool, &id).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             if e.to_string().contains("No organization with id") {
@@ -87,7 +92,7 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
 }
 
 pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
-    match organization::get_organization(&pool, &id).await {
+    match get_organization_service(&pool, &id).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(_) => (
             StatusCode::NOT_FOUND,
@@ -100,7 +105,7 @@ pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>
 }
 
 pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
-    match organization::get_organizations(&pool).await {
+    match get_organizations_service(&pool).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -116,7 +121,7 @@ pub async fn update_org(
     State(pool): State<PgPool>,
     Json(new_organization): Json<OrganizationUpdate>,
 ) -> Response {
-    match organization::update_organization(&pool, &new_organization).await {
+    match update_organization_service(&pool, &new_organization).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             println!("{:?}", e);

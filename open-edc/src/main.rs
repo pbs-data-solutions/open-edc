@@ -3,7 +3,6 @@ mod cli;
 mod config;
 mod db;
 mod models;
-mod services;
 mod utils;
 
 use std::env;
@@ -13,10 +12,12 @@ use axum::{serve, Router};
 use clap::Parser;
 use dotenvy::dotenv;
 
-use crate::api::v1::routes;
-use crate::cli::{Cli, Command};
-use crate::config::Config;
-use crate::db::DbClient;
+use crate::{
+    api::v1::routes,
+    cli::{Cli, Command},
+    config::Config,
+    db::DbClient,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
