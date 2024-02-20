@@ -54,9 +54,7 @@ async fn app() -> Router {
         &database_user_password,
         &database_port,
         "open_edc",
-    )
-    .await
-    .expect("Unable to connect to database");
+    );
     let pool = db_client
         .create_pool(None, None)
         .await
@@ -76,6 +74,8 @@ async fn app() -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::organization::Organization;
+    use crate::utils::generate_db_id;
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
@@ -84,6 +84,10 @@ mod tests {
     use serde_json::{json, Value};
     use tower::ServiceExt; // for `oneshot`
     use uuid::Uuid;
+
+    fn db_client() -> DbClient {
+        DbClient::new("127.0.0.1", "postgres", "test_password", &5432, "open_edc")
+    }
 
     #[tokio::test]
     async fn get_health() {
@@ -127,5 +131,91 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn get_organization() {
+        let org_name = generate_db_id();
+        let organization = Organization::new(org_name.clone());
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+
+        let new_org = sqlx::query_as!(
+            Organization,
+            r#"
+                INSERT INTO organizations(id, name, active, date_added, date_modified)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, name, active, date_added, date_modified
+            "#,
+            organization.id,
+            organization.name,
+            organization.active,
+            organization.date_added,
+            organization.date_modified,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/organization/{}", &new_org.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Organization = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.name, org_name);
+    }
+
+    #[tokio::test]
+    async fn get_organizations() {
+        let org_name = generate_db_id();
+        let organization = Organization::new(org_name.clone());
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+
+        sqlx::query_as!(
+            Organization,
+            r#"
+                INSERT INTO organizations(id, name, active, date_added, date_modified)
+                VALUES ($1, $2, $3, $4, $5)
+            "#,
+            organization.id,
+            organization.name,
+            organization.active,
+            organization.date_added,
+            organization.date_modified,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/organization")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Vec<Organization> = serde_json::from_slice(&body).unwrap();
+        println!("{:?}", body);
+
+        assert!(body.iter().any(|item| item.name == org_name));
     }
 }

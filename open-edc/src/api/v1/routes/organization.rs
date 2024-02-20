@@ -31,17 +31,24 @@ pub async fn create_org(
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             if e.to_string().contains("violates unique constraint") {
-                    (StatusCode::INTERNAL_SERVER_ERROR,
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GenericMessage {
-                        detail: format!("An organization with the name {} already exists", &new_organization.name),
-                    })).into_response()
+                        detail: format!(
+                            "An organization with the name {} already exists",
+                            &new_organization.name
+                        ),
+                    }),
+                )
+                    .into_response()
             } else {
-                (StatusCode::INTERNAL_SERVER_ERROR,
-                Json(GenericMessage {
-                    detail: "Error adding organization".to_string(),
-                }),
-            )
-            .into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(GenericMessage {
+                        detail: "Error adding organization".to_string(),
+                    }),
+                )
+                    .into_response()
             }
         }
     }

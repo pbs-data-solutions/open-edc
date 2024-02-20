@@ -18,16 +18,10 @@ pub struct DbClient {
 }
 
 impl DbClient {
-    pub async fn new(
-        url: &str,
-        user_name: &str,
-        password: &str,
-        port: &u16,
-        db_name: &str,
-    ) -> Result<Self> {
+    pub fn new(url: &str, user_name: &str, password: &str, port: &u16, db_name: &str) -> Self {
         let uri = format!("postgresql://{user_name}:{password}@{url}:{port}/{db_name}");
 
-        Ok(DbClient { uri })
+        DbClient { uri }
     }
 
     pub async fn create_pool(
