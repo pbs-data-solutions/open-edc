@@ -43,7 +43,7 @@ pub async fn create_org(
         Err(e) => {
             if e.to_string().contains("violates unique constraint") {
                 (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_REQUEST,
                     Json(GenericMessage {
                         detail: format!(
                             "An organization with the name {} already exists",
