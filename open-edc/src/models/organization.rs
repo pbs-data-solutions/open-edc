@@ -84,7 +84,7 @@ pub async fn delete_organization_service(pool: &PgPool, id: &str) -> Result<()> 
     }
 }
 
-pub async fn get_organization_service(pool: &PgPool, id: &str) -> Result<Organization> {
+pub async fn get_organization_service(pool: &PgPool, id: &str) -> Result<Option<Organization>> {
     let organization = sqlx::query_as!(
         Organization,
         r#"
@@ -94,10 +94,14 @@ pub async fn get_organization_service(pool: &PgPool, id: &str) -> Result<Organiz
         "#,
         id,
     )
-    .fetch_one(pool)
+    .fetch_optional(pool)
     .await?;
 
-    Ok(organization)
+    if let Some(o) = organization {
+        Ok(Some(o))
+    } else {
+        Ok(None)
+    }
 }
 
 pub async fn get_organizations_service(pool: &PgPool) -> Result<Vec<Organization>> {
