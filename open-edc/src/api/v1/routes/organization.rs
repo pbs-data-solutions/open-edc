@@ -74,8 +74,7 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
                         detail: e.to_string(),
-                    })
-                    .into_response(),
+                    }),
                 )
                     .into_response()
             } else {
@@ -93,11 +92,23 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
 
 pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
     match get_organization_service(&pool, &id).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Ok(organization) => {
+            if let Some(o) = organization {
+                (StatusCode::OK, Json(o)).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(GenericMessage {
+                        detail: format!("Organization with id {id} not found"),
+                    }),
+                )
+                    .into_response()
+            }
+        }
         Err(_) => (
-            StatusCode::NOT_FOUND,
+            StatusCode::INTERNAL_SERVER_ERROR,
             Json(GenericMessage {
-                detail: format!("No organization with the id {id} found"),
+                detail: "Error getting organization".to_string(),
             }),
         )
             .into_response(),
