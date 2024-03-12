@@ -17,6 +17,6 @@ tokio = { version = "1.36.0", features = ["full"] }
 uuid = { version = "1.7.0", features = ["v4"] }
 
 [dev-dependencies]
-http-body-util = "0.1.0"
+http-body-util = "0.1.1"
 mime = "0.3.17"
 tower = { version = "0.4.13", features = ["util"] }
