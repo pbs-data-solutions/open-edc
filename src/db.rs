@@ -45,6 +45,7 @@ impl DbClient {
     }
 }
 
+#[allow(dead_code)]
 struct DbManager(PoolConnection<Postgres>);
 
 #[async_trait]
