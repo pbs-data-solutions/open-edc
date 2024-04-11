@@ -64,11 +64,12 @@ async fn app() -> Router {
     let config = Config::new(None);
 
     Router::new()
+        .merge(routes::health::health_routes(pool.clone(), &config))
         .merge(routes::organization::organization_routes(
             pool.clone(),
             &config,
         ))
-        .merge(routes::health::health_routes(pool.clone(), &config))
+        .merge(routes::user::user_routes(pool.clone(), &config))
         .with_state(pool)
 }
 
@@ -76,7 +77,10 @@ async fn app() -> Router {
 mod tests {
     use super::*;
     use crate::{
-        models::organization::{create_organization_service, Organization, OrganizationCreate},
+        models::{
+            organization::{create_organization_service, Organization, OrganizationCreate},
+            user::{create_user_service, User, UserCreate},
+        },
         utils::generate_db_id,
     };
     use axum::{
@@ -307,5 +311,103 @@ mod tests {
 
         assert_eq!(body.name, updated_name);
         assert_eq!(body.active, active);
+    }
+
+    #[tokio::test]
+    async fn create_user() {
+        let app = app().await;
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let create_org = OrganizationCreate {
+            name: Uuid::new_v4().to_string(),
+        };
+        let organization = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
+        let user_name = Uuid::new_v4().to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/api/v1/user")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "user_name": user_name,
+                            "first_name": "Arthur",
+                            "last_name": "Dent",
+                            "email": "arthur@heartofgold.com",
+                            "password": "Somepassword1!",
+                            "organization_id": organization.id,
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: User = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.user_name, user_name);
+    }
+
+    #[tokio::test]
+    async fn get_user() {
+        let app = app().await;
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let create_org = OrganizationCreate {
+            name: Uuid::new_v4().to_string(),
+        };
+        let organization = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
+        let user_create = UserCreate {
+            user_name: Uuid::new_v4().to_string(),
+            first_name: "Imma".to_string(),
+            last_name: "Person".to_string(),
+            email: "some@email.com".to_string(),
+            password: "Somepassword1!".to_string(),
+            organization_id: organization.id,
+        };
+        let user = create_user_service(&pool, &user_create).await.unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/user/{}", &user.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: User = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.user_name, user_create.user_name);
+    }
+
+    #[tokio::test]
+    async fn get_user_not_found() {
+        let user_id = generate_db_id();
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/user/{}", &user_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }
