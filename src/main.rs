@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod db;
 mod models;
+mod services;
 mod utils;
 
 use std::env;
@@ -78,8 +79,11 @@ mod tests {
     use super::*;
     use crate::{
         models::{
-            organization::{create_organization_service, Organization, OrganizationCreate},
-            user::{create_user_service, User, UserCreate},
+            organization::{Organization, OrganizationCreate},
+            user::{User, UserCreate},
+        },
+        services::{
+            organization_services::create_organization_service, user_services::create_user_service,
         },
         utils::generate_db_id,
     };
