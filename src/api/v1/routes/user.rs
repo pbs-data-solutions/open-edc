@@ -10,7 +10,8 @@ use sqlx::postgres::PgPool;
 use crate::{
     config::Config,
     models::messages::GenericMessage,
-    models::user::{create_user_service, get_user_service, get_users_service, UserCreate},
+    models::user::UserCreate,
+    services::user_services::{create_user_service, get_user_service, get_users_service},
 };
 
 pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {

@@ -9,11 +9,13 @@ use sqlx::postgres::PgPool;
 
 use crate::{
     config::Config,
-    models::messages::GenericMessage,
-    models::organization::{
+    models::{
+        messages::GenericMessage,
+        organization::{OrganizationCreate, OrganizationUpdate},
+    },
+    services::organization_services::{
         create_organization_service, delete_organization_service, get_organization_service,
-        get_organizations_service, update_organization_service, OrganizationCreate,
-        OrganizationUpdate,
+        get_organizations_service, update_organization_service,
     },
 };
 
