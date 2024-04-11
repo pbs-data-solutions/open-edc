@@ -1,15 +1,10 @@
-SELECT 'CREATE DATABASE open_edc'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'open_edc')\gexec
-
-\connect open_edc
-
 CREATE TABLE IF NOT EXISTS organizations(
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   active BOOLEAN NOT NULL,
   date_added TIMESTAMP with time zone NOT NULL,
   date_modified TIMESTAMP with time zone NOT NULL
-)\gexec
+);
 
 CREATE TABLE IF NOT EXISTS studies(
   id TEXT PRIMARY KEY,
@@ -19,7 +14,7 @@ CREATE TABLE IF NOT EXISTS studies(
   organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
   date_added TIMESTAMP with time zone NOT NULL,
   date_modified TIMESTAMP with time zone NOT NULL
-)\gexec
+);
 
 CREATE TABLE IF NOT EXISTS users(
   id TEXT PRIMARY KEY,
@@ -31,7 +26,7 @@ CREATE TABLE IF NOT EXISTS users(
   active BOOLEAN NOT NULL,
   date_added TIMESTAMP with time zone NOT NULL,
   date_modified TIMESTAMP with time zone NOT NULL
-)\gexec
+);
 
 CREATE TABLE IF NOT EXISTS user_studies(
   id TEXT PRIMARY KEY,
@@ -40,4 +35,4 @@ CREATE TABLE IF NOT EXISTS user_studies(
   date_added TIMESTAMP with time zone NOT NULL,
   date_modified TIMESTAMP with time zone NOT NULL,
   UNIQUE(user_id, study_id)
-)\gexec
+);
