@@ -18,6 +18,9 @@ check:
 fmt:
   cargo fmt --all
 
+migrate:
+  sqlx migrate run
+
 test:
   cargo test
 
