@@ -26,7 +26,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2.7.3
       - name: Start database
-        run: docker compose up db -d
+        run: docker compose down -v && docker compose up db -d
       - name: Run cargo clippy
         run: cargo clippy --all-targets -- --deny warnings
   fmt:
