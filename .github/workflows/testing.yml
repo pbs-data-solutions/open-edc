@@ -29,7 +29,7 @@ jobs:
         run: docker compose up db -d
       - name: Run migrations
         run: |
-          cargo install sqlx-cli
+          cargo install sqlx-cli --no-default-features --features native-tls,postgres
           sqlx migrate run
       - name: Run cargo clippy
         run: cargo clippy --all-targets -- --deny warnings
@@ -59,7 +59,7 @@ jobs:
         run: docker compose up db -d
       - name: Run migrations
         run: |
-          cargo install sqlx-cli
+          cargo install sqlx-cli --no-default-features --features native-tls,postgres
           sqlx migrate run
       - name: Run cargo test
         run: cargo test --locked
