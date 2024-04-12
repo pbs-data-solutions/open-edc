@@ -1,6 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
     models::organization::Organization,
@@ -47,9 +48,10 @@ impl UserInDb {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct User {
+    /// Uniue system identifier for the organization
     pub id: String,
     pub user_name: String,
     pub first_name: String,
@@ -59,7 +61,7 @@ pub struct User {
     pub active: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct UserCreate {
     pub user_name: String,
@@ -70,9 +72,10 @@ pub struct UserCreate {
     pub organization_id: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct UserUpdate {
+    /// Uniue system identifier for the organization
     pub id: String,
     pub user_name: String,
     pub first_name: String,

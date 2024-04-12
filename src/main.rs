@@ -12,6 +12,8 @@ use anyhow::Result;
 use axum::{serve, Router};
 use clap::Parser;
 use dotenvy::dotenv;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     api::v1::routes,
@@ -19,6 +21,34 @@ use crate::{
     config::Config,
     db::DbClient,
 };
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        api::v1::routes::organization::create_organization,
+        api::v1::routes::organization::delete_organization,
+        api::v1::routes::organization::get_organization,
+        api::v1::routes::organization::get_organizations,
+        api::v1::routes::organization::update_organization,
+        api::v1::routes::user::create_user,
+        api::v1::routes::user::get_user,
+        api::v1::routes::user::get_users,
+    ),
+    components(schemas(
+        models::organization::Organization,
+        models::organization::OrganizationCreate,
+        models::organization::OrganizationUpdate,
+        models::messages::GenericMessage,
+        models::user::User,
+        models::user::UserCreate,
+        models::user::UserUpdate,
+    )),
+    tags(
+        (name = "Organization", description = "Organization management"),
+        (name = "Users", description = "User managmenet"),
+    ),
+)]
+pub struct ApiDoc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,6 +95,7 @@ async fn app() -> Router {
     let config = Config::new(None);
 
     Router::new()
+        .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .merge(routes::health::health_routes(pool.clone(), &config))
         .merge(routes::organization::organization_routes(
             pool.clone(),
@@ -166,7 +197,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
         let result = sqlx::query_as!(
             Organization,

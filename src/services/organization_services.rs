@@ -43,7 +43,7 @@ pub async fn delete_organization_service(pool: &PgPool, id: &str) -> Result<()> 
     if result.rows_affected() > 0 {
         Ok(())
     } else {
-        bail!(format!("No organization with id {id} found"));
+        bail!(format!("No organization with the id {id} found"));
     }
 }
 
