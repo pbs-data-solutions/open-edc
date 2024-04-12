@@ -31,6 +31,17 @@ pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     // .with_state(pool.clone())
 }
 
+/// Create a new user
+#[utoipa::path(
+    post,
+    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
+    request_body = OrganizationCreate,
+    tag = "Users",
+    responses(
+        (status = 200, description = "User added successfully", body = UserCreate),
+        (status = 400, description = "User already exists", body = GenericMessage)
+    )
+)]
 pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCreate>) -> Response {
     match create_user_service(&pool, &new_user).await {
         Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
@@ -59,6 +70,16 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
     }
 }
 
+/// Get a user by database id
+#[utoipa::path(
+    get,
+    path = (format!("{}/user/{{id}}", Config::new(None).api_v1_prefix)),
+    tag = "Users",
+    responses(
+        (status = 200, description = "User information", body = User),
+        (status = 404, description = "User not found", body = GenericMessage)
+    )
+)]
 pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
     match get_user_service(&pool, &id).await {
         Ok(user) => {
@@ -84,6 +105,15 @@ pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Res
     }
 }
 
+/// Get all users
+#[utoipa::path(
+    get,
+    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
+    tag = "Users",
+    responses(
+        (status = 200, description = "All users information", body = [User]),
+    )
+)]
 pub async fn get_users(State(pool): State<PgPool>) -> Response {
     match get_users_service(&pool).await {
         Ok(u) => (StatusCode::OK, Json(u)).into_response(),
