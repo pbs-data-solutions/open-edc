@@ -41,7 +41,7 @@ pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     post,
     path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
     request_body = OrganizationCreate,
-    tag = "Organization",
+    tag = "Organizations",
     responses(
         (status = 200, description = "Organization added successfully", body = OrganizationCreate),
         (status = 400, description = "Organization already exists", body = GenericMessage)
@@ -85,7 +85,7 @@ pub async fn create_organization(
     params(
         ("id" = String, Path, description = "Organization database id")
     ),
-    tag = "Organization",
+    tag = "Organizations",
     responses(
         (status = 204, description = "Organization successfully deleted"),
         (status = 404, description = "Organization not found", body = GenericMessage),
@@ -123,7 +123,7 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
     params(
         ("id" = String, Path, description = "Organization database id")
     ),
-    tag = "Organization",
+    tag = "Organizations",
     responses(
         (status = 200, description = "Organization information", body = Organization),
         (status = 404, description = "Organization not found", body = GenericMessage),
@@ -158,7 +158,7 @@ pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>
 #[utoipa::path(
     get,
     path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
-    tag = "Organization",
+    tag = "Organizations",
     responses((status = 200, description = "Organization information", body = [Organization])),
 )]
 pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
@@ -179,7 +179,7 @@ pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
     put,
     path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
     request_body = OrganizationUpdate,
-    tag = "Organization",
+    tag = "Organizations",
     responses((status = 200, description = "Organization added successfully", body = Organization)),
 )]
 pub async fn update_organization(

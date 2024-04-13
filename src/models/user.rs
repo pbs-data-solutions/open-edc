@@ -51,7 +51,7 @@ impl UserInDb {
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct User {
-    /// Uniue system identifier for the organization
+    /// Uniue system identifier for the user
     pub id: String,
     pub user_name: String,
     pub first_name: String,
@@ -75,7 +75,7 @@ pub struct UserCreate {
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct UserUpdate {
-    /// Uniue system identifier for the organization
+    /// Uniue system identifier for the user
     pub id: String,
     pub user_name: String,
     pub first_name: String,
