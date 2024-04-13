@@ -31,8 +31,10 @@ use crate::{
         api::v1::routes::organization::get_organizations,
         api::v1::routes::organization::update_organization,
         api::v1::routes::user::create_user,
+        api::v1::routes::user::delete_user,
         api::v1::routes::user::get_user,
         api::v1::routes::user::get_users,
+        api::v1::routes::user::update_user,
     ),
     components(schemas(
         models::organization::Organization,
