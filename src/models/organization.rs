@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 use crate::utils::generate_db_id;
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[schema(rename_all = "camelCase")]
 pub struct Organization {

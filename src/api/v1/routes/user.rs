@@ -10,10 +10,10 @@ use sqlx::postgres::PgPool;
 use crate::{
     config::Config,
     models::messages::GenericMessage,
-    models::user::{UserCreate, UserUpdate},
+    models::user::{UserCreate, UserStudy, UserUpdate},
     services::user_services::{
-        create_user_service, delete_user_service, get_user_service, get_users_service,
-        update_user_service,
+        add_user_to_study_service, create_user_service, delete_user_service, get_user_service,
+        get_users_service, remove_user_from_study_service, update_user_service,
     },
 };
 
@@ -32,6 +32,74 @@ pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
         // default None and user set None in serde.
         .route(&prefix, put(update_user))
         .with_state(pool.clone())
+        .route(&format!("{prefix}/study"), post(user_add_study))
+        .with_state(pool.clone())
+        .route(
+            &format!("{prefix}/study/:user_id/:study_id"),
+            delete(user_remove_study),
+        )
+        .with_state(pool.clone())
+}
+
+/// Add user to a study
+#[utoipa::path(
+    post,
+    path = (format!("{}/user/study", Config::new(None).api_v1_prefix)),
+    request_body = UserStudy,
+    tag = "Users",
+    responses(
+        (status = 204, description = "User added to study successfully", body = User),
+        (status = 400, body = GenericMessage)
+    )
+)]
+pub async fn user_add_study(
+    State(pool): State<PgPool>,
+    Json(user_study): Json<UserStudy>,
+) -> Response {
+    match add_user_to_study_service(&pool, &user_study.user_id, &user_study.study_id).await {
+        Ok(user) => (StatusCode::OK, Json(user)).into_response(),
+        Err(e) => {
+            if e.to_string().contains("violates unique constraint") {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(GenericMessage {
+                        detail: format!(
+                            "User {} has already been added to study {}",
+                            &user_study.user_id, &user_study.study_id
+                        ),
+                    }),
+                )
+                    .into_response()
+            } else if e.to_string().contains("violates foreign key constraint") {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(GenericMessage {
+                        detail: "User id or study id not found".to_string(),
+                    }),
+                )
+                    .into_response()
+            } else if e.to_string().contains("No user with id")
+                || e.to_string().contains("No study with id")
+                || e.to_string() == format!("Study id {} not found", &user_study.study_id)
+            {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(GenericMessage {
+                        detail: e.to_string(),
+                    }),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(GenericMessage {
+                        detail: "An error occurred while adding user to study".to_string(),
+                    }),
+                )
+                    .into_response()
+            }
+        }
+    }
 }
 
 /// Create a new user
@@ -173,6 +241,48 @@ pub async fn get_users(State(pool): State<PgPool>) -> Response {
             }),
         )
             .into_response(),
+    }
+}
+
+/// Remove a user from a study by the user's database id and study id
+#[utoipa::path(
+    delete,
+    path = (format!("{}/user/study/{{user_id}}/{{study_id}}", Config::new(None).api_v1_prefix)),
+    params(
+        ("user_id" = String, Path, description = "User database id"),
+        ("study_id" = String, Path, description = "Study database id"),
+    ),
+    tag = "Users",
+    responses(
+        (status = 204, description = "User successfully removed from study"),
+        (status = 404, body = GenericMessage),
+    )
+)]
+pub async fn user_remove_study(
+    State(pool): State<PgPool>,
+    Path((user_id, study_id)): Path<(String, String)>,
+) -> Response {
+    match remove_user_from_study_service(&pool, &user_id, &study_id).await {
+        Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
+        Err(e) => {
+            if e.to_string().contains("user with the id") {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(GenericMessage {
+                        detail: e.to_string(),
+                    }),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(GenericMessage {
+                        detail: "Error removing user from study".to_string(),
+                    }),
+                )
+                    .into_response()
+            }
+        }
     }
 }
 

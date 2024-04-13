@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-    models::organization::Organization,
+    models::{organization::Organization, study::Study},
     utils::{generate_db_id, hash_password},
 };
 
@@ -58,6 +58,7 @@ pub struct User {
     pub last_name: String,
     pub email: String,
     pub organization: Organization,
+    pub studies: Option<Vec<Study>>,
     pub active: bool,
 }
 
@@ -84,4 +85,14 @@ pub struct UserUpdate {
     pub password: Option<String>,
     pub active: bool,
     pub organization_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct UserStudy {
+    /// User's unique system identifier
+    pub user_id: String,
+
+    /// Study's unique system identifier
+    pub study_id: String,
 }

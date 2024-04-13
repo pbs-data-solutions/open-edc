@@ -3,10 +3,64 @@ use chrono::Utc;
 use sqlx::postgres::PgPool;
 
 use crate::{
-    models::user::{User, UserCreate, UserInDb, UserUpdate},
-    services::organization_services::get_organization_service,
-    utils::hash_password,
+    models::{
+        study::{Study, StudyInDb},
+        user::{User, UserCreate, UserInDb, UserUpdate},
+    },
+    services::{
+        organization_services::get_organization_service, study_services::get_study_service,
+    },
+    utils::{generate_db_id, hash_password},
 };
+
+pub async fn add_user_to_study_service(
+    pool: &PgPool,
+    user_id: &str,
+    study_id: &str,
+) -> Result<User> {
+    let user_org = if let Some(user) = get_user_service(pool, user_id).await? {
+        user.organization.id
+    } else {
+        bail!(format!("No user with id {user_id} found"));
+    };
+    let study_org = if let Some(study) = get_study_service(pool, study_id).await? {
+        study.organization.id
+    } else {
+        bail!(format!("No study with id {study_id} found"));
+    };
+
+    if user_org != study_org {
+        bail!("Study id {study_id} not found");
+    }
+
+    let db_id = generate_db_id();
+
+    sqlx::query!(
+        r#"
+            INSERT INTO user_studies (
+                id,
+                user_id,
+                study_id,
+                date_added,
+                date_modified
+            )
+            VALUES ($1, $2, $3, $4, $5)
+        "#,
+        db_id,
+        user_id,
+        study_id,
+        Utc::now(),
+        Utc::now(),
+    )
+    .execute(pool)
+    .await?;
+
+    if let Some(user) = get_user_service(pool, user_id).await? {
+        Ok(user)
+    } else {
+        bail!("Error retrieving user");
+    }
+}
 
 pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result<User> {
     let organization = match get_organization_service(pool, &new_user.organization_id).await {
@@ -72,6 +126,8 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
     .fetch_one(pool)
     .await?;
 
+    let studies = get_user_studies_service(pool, &db_user.id).await?;
+
     let user = User {
         id: db_user.id,
         user_name: db_user.user_name,
@@ -79,6 +135,7 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
         last_name: db_user.last_name,
         email: db_user.email,
         organization,
+        studies,
         active: db_user.active,
     };
 
@@ -128,6 +185,7 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
 
     if let Some(u) = db_user {
         let organization = get_organization_service(pool, &u.organization_id).await;
+        let studies = get_user_studies_service(pool, &u.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -139,6 +197,7 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
                     email: u.email,
                     active: u.active,
                     organization: o,
+                    studies,
                 };
 
                 Ok(Some(user))
@@ -148,6 +207,55 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
         } else {
             bail!("An error occurred retrieving the user: organization not found");
         }
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn get_user_studies_service(pool: &PgPool, user_id: &str) -> Result<Option<Vec<Study>>> {
+    let db_studies: Vec<StudyInDb> = sqlx::query_as!(
+        StudyInDb,
+        r#"
+            SELECT
+                id,
+                study_id,
+                study_name,
+                study_description,
+                organization_id,
+                date_added,
+                date_modified
+            FROM studies
+            WHERE id in (SELECT study_id FROM user_studies WHERE user_id = $1)
+        "#,
+        user_id,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    if !db_studies.is_empty() {
+        let organization =
+            match get_organization_service(pool, &db_studies[0].organization_id).await {
+                Ok(org) => {
+                    if let Some(o) = org {
+                        o
+                    } else {
+                        bail!("No organization found for user");
+                    }
+                }
+                Err(_) => bail!("Error retrieving organization"),
+            };
+        let mut studies: Vec<Study> = Vec::new();
+        for study in db_studies.into_iter() {
+            let s = Study {
+                id: study.id,
+                study_id: study.study_id,
+                study_name: study.study_name,
+                study_description: study.study_description,
+                organization: organization.clone(),
+            };
+            studies.push(s);
+        }
+        Ok(Some(studies))
     } else {
         Ok(None)
     }
@@ -178,6 +286,7 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
 
     for db_user in db_users.into_iter() {
         let organization = get_organization_service(pool, &db_user.organization_id).await;
+        let studies = get_user_studies_service(pool, &db_user.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -189,6 +298,7 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
                     email: db_user.email,
                     active: db_user.active,
                     organization: o,
+                    studies,
                 };
 
                 users.push(user);
@@ -203,6 +313,31 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
     Ok(users)
 }
 
+pub async fn remove_user_from_study_service(
+    pool: &PgPool,
+    user_id: &str,
+    study_id: &str,
+) -> Result<()> {
+    let result = sqlx::query!(
+        r#"
+            DELETE FROM user_studies
+            where user_id = $1 and study_id = $2
+        "#,
+        user_id,
+        study_id,
+    )
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() > 0 {
+        Ok(())
+    } else {
+        bail!(format!(
+            "No user with the id {user_id} and study id {study_id} found"
+        ));
+    }
+}
+
 pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Result<User> {
     let organization = match get_organization_service(pool, &updated_user.organization_id).await {
         Ok(org) => {
@@ -215,6 +350,7 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
         Err(_) => bail!("Error retrieving organization"),
     };
 
+    let studies = get_user_studies_service(pool, &updated_user.id).await?;
     let db_user = if let Some(password) = &updated_user.password {
         let hashed_password = hash_password(password).await?;
         sqlx::query_as!(
@@ -301,11 +437,9 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
         last_name: db_user.last_name,
         email: db_user.email,
         organization,
+        studies,
         active: db_user.active,
     };
 
     Ok(user)
 }
-
-#[allow(dead_code)]
-pub async fn get_organization_users_service() {}
