@@ -7,7 +7,9 @@ use crate::{
         study::{Study, StudyInDb},
         user::{User, UserCreate, UserInDb, UserUpdate},
     },
-    services::organization_services::get_organization_service,
+    services::{
+        organization_services::get_organization_service, study_services::get_study_service,
+    },
     utils::{generate_db_id, hash_password},
 };
 
@@ -16,6 +18,21 @@ pub async fn add_user_to_study_service(
     user_id: &str,
     study_id: &str,
 ) -> Result<User> {
+    let user_org = if let Some(user) = get_user_service(pool, user_id).await? {
+        user.organization.id
+    } else {
+        bail!(format!("No user with id {user_id} found"));
+    };
+    let study_org = if let Some(study) = get_study_service(pool, study_id).await? {
+        study.organization.id
+    } else {
+        bail!(format!("No study with id {study_id} found"));
+    };
+
+    if user_org != study_org {
+        bail!("Study id {study_id} not found");
+    }
+
     let db_id = generate_db_id();
 
     sqlx::query!(

@@ -78,6 +78,17 @@ pub async fn user_add_study(
                     }),
                 )
                     .into_response()
+            } else if e.to_string().contains("No user with id")
+                || e.to_string().contains("No study with id")
+                || e.to_string() == format!("Study id {} not found", &user_study.study_id)
+            {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(GenericMessage {
+                        detail: e.to_string(),
+                    }),
+                )
+                    .into_response()
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
