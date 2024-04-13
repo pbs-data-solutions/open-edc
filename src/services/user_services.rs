@@ -1,9 +1,11 @@
 use anyhow::{bail, Result};
+use chrono::Utc;
 use sqlx::postgres::PgPool;
 
 use crate::{
-    models::user::{User, UserCreate, UserInDb},
+    models::user::{User, UserCreate, UserInDb, UserUpdate},
     services::organization_services::get_organization_service,
+    utils::hash_password,
 };
 
 pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result<User> {
@@ -81,6 +83,24 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
     };
 
     Ok(user)
+}
+
+pub async fn delete_user_service(pool: &PgPool, id: &str) -> Result<()> {
+    let result = sqlx::query!(
+        r#"
+            DELETE FROM users
+            WHERE id = $1
+        "#,
+        id,
+    )
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() > 0 {
+        Ok(())
+    } else {
+        bail!(format!("No user with the id {id} found"));
+    }
 }
 
 pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<User>> {
@@ -181,6 +201,110 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
     }
 
     Ok(users)
+}
+
+pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Result<User> {
+    let organization = match get_organization_service(pool, &updated_user.organization_id).await {
+        Ok(org) => {
+            if let Some(o) = org {
+                o
+            } else {
+                bail!("No organization found for user");
+            }
+        }
+        Err(_) => bail!("Error retrieving organization"),
+    };
+
+    let db_user = if let Some(password) = &updated_user.password {
+        let hashed_password = hash_password(password).await?;
+        sqlx::query_as!(
+            UserInDb,
+            r#"
+                UPDATE users
+                SET
+                  user_name = $2,
+                  first_name = $3,
+                  last_name = $4,
+                  email = $5,
+                  hashed_password = $6,
+                  active = $7,
+                  organization_id = $8,
+                  date_modified = $9
+                WHERE id = $1
+                RETURNING
+                    id,
+                    user_name,
+                    first_name,
+                    last_name,
+                    email,
+                    hashed_password,
+                    active,
+                    organization_id,
+                    date_added,
+                    date_modified
+            "#,
+            updated_user.id,
+            updated_user.user_name,
+            updated_user.first_name,
+            updated_user.last_name,
+            updated_user.email,
+            hashed_password,
+            updated_user.active,
+            updated_user.organization_id,
+            Utc::now(),
+        )
+        .fetch_one(pool)
+        .await?
+    } else {
+        sqlx::query_as!(
+            UserInDb,
+            r#"
+                UPDATE users
+                SET
+                  user_name = $2,
+                  first_name = $3,
+                  last_name = $4,
+                  email = $5,
+                  active = $6,
+                  organization_id = $7,
+                  date_modified = $8
+                WHERE id = $1
+                RETURNING
+                    id,
+                    user_name,
+                    first_name,
+                    last_name,
+                    email,
+                    hashed_password,
+                    organization_id,
+                    active,
+                    date_added,
+                    date_modified
+            "#,
+            updated_user.id,
+            updated_user.user_name,
+            updated_user.first_name,
+            updated_user.last_name,
+            updated_user.email,
+            updated_user.active,
+            updated_user.organization_id,
+            Utc::now(),
+        )
+        .fetch_one(pool)
+        .await?
+    };
+
+    let user = User {
+        id: db_user.id,
+        user_name: db_user.user_name,
+        first_name: db_user.first_name,
+        last_name: db_user.last_name,
+        email: db_user.email,
+        organization,
+        active: db_user.active,
+    };
+
+    Ok(user)
 }
 
 #[allow(dead_code)]

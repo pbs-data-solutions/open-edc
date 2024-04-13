@@ -184,9 +184,9 @@ pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
 )]
 pub async fn update_organization(
     State(pool): State<PgPool>,
-    Json(new_organization): Json<OrganizationUpdate>,
+    Json(update_organization): Json<OrganizationUpdate>,
 ) -> Response {
-    match update_organization_service(&pool, &new_organization).await {
+    match update_organization_service(&pool, &update_organization).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             println!("{:?}", e);

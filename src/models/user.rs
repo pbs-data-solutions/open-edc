@@ -81,7 +81,7 @@ pub struct UserUpdate {
     pub first_name: String,
     pub last_name: String,
     pub email: String,
-    pub password: String,
+    pub password: Option<String>,
     pub active: bool,
     pub organization_id: String,
 }
