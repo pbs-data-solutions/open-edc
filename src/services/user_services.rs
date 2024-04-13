@@ -216,7 +216,7 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
     };
 
     let db_user = if let Some(password) = &updated_user.password {
-        let hashed_password = hash_password(&password).await?;
+        let hashed_password = hash_password(password).await?;
         sqlx::query_as!(
             UserInDb,
             r#"
