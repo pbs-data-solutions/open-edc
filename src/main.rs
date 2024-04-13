@@ -75,6 +75,7 @@ async fn app() -> Router {
             pool.clone(),
             &config,
         ))
+        .merge(routes::study::study_routes(pool.clone(), &config))
         .merge(routes::user::user_routes(pool.clone(), &config))
         .with_state(pool)
 }
@@ -85,10 +86,12 @@ mod tests {
     use crate::{
         models::{
             organization::{Organization, OrganizationCreate},
+            study::{Study, StudyCreate},
             user::{User, UserCreate},
         },
         services::{
-            organization_services::create_organization_service, user_services::create_user_service,
+            organization_services::create_organization_service,
+            study_services::create_study_service, user_services::create_user_service,
         },
         utils::generate_db_id,
     };
@@ -320,6 +323,100 @@ mod tests {
 
         assert_eq!(body.name, updated_name);
         assert_eq!(body.active, active);
+    }
+
+    #[tokio::test]
+    async fn create_study() {
+        let app = app().await;
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let create_org = OrganizationCreate {
+            name: Uuid::new_v4().to_string(),
+        };
+        let organization = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
+        let study_id = Uuid::new_v4().to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/api/v1/study")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "study_id": study_id,
+                            "study_name": "Test Study",
+                            "study_description": "Description",
+                            "organization_id": organization.id,
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Study = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.study_id, study_id);
+    }
+
+    #[tokio::test]
+    async fn get_study() {
+        let app = app().await;
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let create_org = OrganizationCreate {
+            name: Uuid::new_v4().to_string(),
+        };
+        let organization = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
+        let study_create = StudyCreate {
+            study_id: Uuid::new_v4().to_string(),
+            study_name: Some("Study Name".to_string()),
+            study_description: Some("Description".to_string()),
+            organization_id: organization.id,
+        };
+        let study = create_study_service(&pool, &study_create).await.unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/study/{}", &study.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Study = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.study_id, study_create.study_id);
+    }
+
+    #[tokio::test]
+    async fn get_study_not_found() {
+        let study_id = generate_db_id();
+        let app = app().await;
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(&format!("/api/v1/study/{}", &study_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

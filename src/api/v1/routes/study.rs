@@ -10,52 +10,55 @@ use sqlx::postgres::PgPool;
 use crate::{
     config::Config,
     models::messages::GenericMessage,
-    models::user::{UserCreate, UserUpdate},
-    services::user_services::{
-        create_user_service, delete_user_service, get_user_service, get_users_service,
-        update_user_service,
+    models::study::{StudyCreate, StudyUpdate},
+    services::study_services::{
+        create_study_service, delete_study_service, get_studies_service, get_study_service,
+        update_study_service,
     },
 };
 
-pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
-    let prefix = format!("{}/user", config.api_v1_prefix);
+pub fn study_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
+    let prefix = format!("{}/study", config.api_v1_prefix);
     Router::new()
-        .route(&prefix, post(create_user))
+        .route(&prefix, post(create_study))
         .with_state(pool.clone())
-        .route(&format!("{prefix}/:id"), delete(delete_user))
+        .route(&format!("{prefix}/:id"), delete(delete_study))
         .with_state(pool.clone())
-        .route(&format!("{prefix}/:id"), get(get_user))
+        .route(&format!("{prefix}/:id"), get(get_study))
         .with_state(pool.clone())
-        .route(&prefix, get(get_users))
+        .route(&prefix, get(get_studies))
         .with_state(pool.clone())
         // TODO: I want to make this a patch but need to figure out how to diferentiate between
-        // default None and user set None in serde.
-        .route(&prefix, put(update_user))
+        // default None and study set None in serde.
+        .route(&prefix, put(update_study))
         .with_state(pool.clone())
 }
 
-/// Create a new user
+/// Create a new study
 #[utoipa::path(
     post,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
-    request_body = UserCreate,
-    tag = "Users",
+    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    request_body = StudyCreate,
+    tag = "Studies",
     responses(
-        (status = 200, description = "User added successfully", body = User),
+        (status = 200, description = "Study added successfully", body = Study),
         (status = 400, body = GenericMessage)
     )
 )]
-pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCreate>) -> Response {
-    match create_user_service(&pool, &new_user).await {
-        Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
+pub async fn create_study(
+    State(pool): State<PgPool>,
+    Json(new_study): Json<StudyCreate>,
+) -> Response {
+    match create_study_service(&pool, &new_study).await {
+        Ok(study) => (StatusCode::CREATED, Json(study)).into_response(),
         Err(e) => {
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
                     Json(GenericMessage {
                         detail: format!(
-                            "An user with the user name {} already exists",
-                            &new_user.user_name
+                            "An study with the study id {} already exists",
+                            &new_study.study_id
                         ),
                     }),
                 )
@@ -64,7 +67,7 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
                 (
                     StatusCode::BAD_REQUEST,
                     Json(GenericMessage {
-                        detail: format!("Organization id {} not found", &new_user.organization_id),
+                        detail: format!("Organization id {} not found", &new_study.organization_id),
                     }),
                 )
                     .into_response()
@@ -72,7 +75,7 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GenericMessage {
-                        detail: "An error occurred while creating user".to_string(),
+                        detail: "An error occurred while creating study".to_string(),
                     }),
                 )
                     .into_response()
@@ -81,24 +84,24 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
     }
 }
 
-/// Delete a user by database id
+/// Delete a study by database id
 #[utoipa::path(
     delete,
-    path = (format!("{}/user/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study/{{id}}", Config::new(None).api_v1_prefix)),
     params(
-        ("id" = String, Path, description = "User database id")
+        ("id" = String, Path, description = "Study database id")
     ),
-    tag = "Users",
+    tag = "Studies",
     responses(
-        (status = 204, description = "User successfully deleted"),
-        (status = 404, description = "User not found", body = GenericMessage),
+        (status = 204, description = "Study successfully deleted"),
+        (status = 404, description = "Study not found", body = GenericMessage),
     )
 )]
-pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
-    match delete_user_service(&pool, &id).await {
+pub async fn delete_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    match delete_study_service(&pool, &id).await {
         Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
         Err(e) => {
-            if e.to_string().contains("No user with the id") {
+            if e.to_string().contains("No study with the id") {
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
@@ -110,7 +113,7 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> 
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GenericMessage {
-                        detail: "Error deleting user".to_string(),
+                        detail: "Error deleting study".to_string(),
                     }),
                 )
                     .into_response()
@@ -119,26 +122,26 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> 
     }
 }
 
-/// Get a user by database id
+/// Get a study by database id
 #[utoipa::path(
     get,
-    path = (format!("{}/user/{{id}}", Config::new(None).api_v1_prefix)),
-    tag = "Users",
+    path = (format!("{}/study/{{id}}", Config::new(None).api_v1_prefix)),
+    tag = "Studies",
     responses(
-        (status = 200, description = "User information", body = User),
-        (status = 404, description = "User not found", body = GenericMessage)
+        (status = 200, description = "Study information", body = Study),
+        (status = 404, description = "Study not found", body = GenericMessage)
     )
 )]
-pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
-    match get_user_service(&pool, &id).await {
-        Ok(user) => {
-            if let Some(u) = user {
-                (StatusCode::OK, Json(u)).into_response()
+pub async fn get_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    match get_study_service(&pool, &id).await {
+        Ok(study) => {
+            if let Some(s) = study {
+                (StatusCode::OK, Json(s)).into_response()
             } else {
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
-                        detail: format!("No user with id {id} found"),
+                        detail: format!("No study with id {id} found"),
                     }),
                 )
                     .into_response()
@@ -147,49 +150,49 @@ pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Res
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(GenericMessage {
-                detail: "Error getting user".to_string(),
+                detail: "Error getting study".to_string(),
             }),
         )
             .into_response(),
     }
 }
 
-/// Get all users
+/// Get all study
 #[utoipa::path(
     get,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
-    tag = "Users",
+    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    tag = "Studies",
     responses(
-        (status = 200, description = "All users information", body = [User]),
+        (status = 200, description = "All studies information", body = [Study]),
     )
 )]
-pub async fn get_users(State(pool): State<PgPool>) -> Response {
-    match get_users_service(&pool).await {
+pub async fn get_studies(State(pool): State<PgPool>) -> Response {
+    match get_studies_service(&pool).await {
         Ok(u) => (StatusCode::OK, Json(u)).into_response(),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(GenericMessage {
-                detail: "Error retrieving users".to_string(),
+                detail: "Error retrieving studies".to_string(),
             }),
         )
             .into_response(),
     }
 }
 
-/// Update a user by database id
+/// Update a study by database id
 #[utoipa::path(
     put,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
-    request_body = UserUpdate,
-    tag = "Users",
-    responses((status = 200, description = "User added successfully", body = Organization)),
+    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    request_body = StudyUpdate,
+    tag = "Studies",
+    responses((status = 200, description = "Study added successfully", body = Organization)),
     responses((status = 400, body = GenericMessage)),
 )]
-pub async fn update_user(
+pub async fn update_study(
     State(pool): State<PgPool>,
-    Json(user_update): Json<UserUpdate>,
+    Json(study_update): Json<StudyUpdate>,
 ) -> Response {
-    match update_user_service(&pool, &user_update).await {
+    match update_study_service(&pool, &study_update).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
             if e.to_string().contains("violates unique constraint") {
@@ -197,8 +200,8 @@ pub async fn update_user(
                     StatusCode::BAD_REQUEST,
                     Json(GenericMessage {
                         detail: format!(
-                            "An user with the user name {} already exists",
-                            &user_update.user_name
+                            "An study with the study id {} already exists",
+                            &study_update.study_id
                         ),
                     }),
                 )
@@ -209,7 +212,7 @@ pub async fn update_user(
                     Json(GenericMessage {
                         detail: format!(
                             "Organization id {} not found",
-                            &user_update.organization_id
+                            &study_update.organization_id
                         ),
                     }),
                 )
@@ -218,7 +221,7 @@ pub async fn update_user(
                 (
                     StatusCode::BAD_REQUEST,
                     Json(GenericMessage {
-                        detail: format!("No user with id {} found", &user_update.id),
+                        detail: format!("No study with id {} found", &study_update.id),
                     }),
                 )
                     .into_response()
@@ -226,7 +229,7 @@ pub async fn update_user(
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GenericMessage {
-                        detail: "Error adding user".to_string(),
+                        detail: "Error adding study".to_string(),
                     }),
                 )
                     .into_response()
