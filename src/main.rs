@@ -516,4 +516,61 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
+
+    #[tokio::test]
+    async fn add_user_to_study() {
+        let app = app().await;
+        let db_client = db_client();
+        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let create_org = OrganizationCreate {
+            name: Uuid::new_v4().to_string(),
+        };
+        let organization = create_organization_service(&pool, &create_org)
+            .await
+            .unwrap();
+        let user_create = UserCreate {
+            user_name: Uuid::new_v4().to_string(),
+            first_name: "Imma".to_string(),
+            last_name: "Person".to_string(),
+            email: "some@email.com".to_string(),
+            password: "Somepassword1!".to_string(),
+            organization_id: organization.id.clone(),
+        };
+        let user = create_user_service(&pool, &user_create).await.unwrap();
+        let study_create = StudyCreate {
+            study_id: Uuid::new_v4().to_string(),
+            study_name: Some("Study Name".to_string()),
+            study_description: Some("Description".to_string()),
+            organization_id: organization.id.clone(),
+        };
+        let study = create_study_service(&pool, &study_create).await.unwrap();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/api/v1/user/study")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "user_id": user.id,
+                            "study_id": study.id,
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: User = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body.id, user.id);
+        assert!(body.studies.is_some());
+        let studies_test = body.studies.unwrap();
+        assert_eq!(studies_test.len(), 1);
+    }
 }

@@ -20,6 +20,8 @@ use crate::{api, models};
         api::v1::routes::user::get_user,
         api::v1::routes::user::get_users,
         api::v1::routes::user::update_user,
+        api::v1::routes::user::user_add_study,
+        api::v1::routes::user::user_remove_study,
     ),
     components(schemas(
         models::messages::GenericMessage,
@@ -31,6 +33,7 @@ use crate::{api, models};
         models::study::StudyUpdate,
         models::user::User,
         models::user::UserCreate,
+        models::user::UserStudy,
         models::user::UserUpdate,
     )),
     tags(
