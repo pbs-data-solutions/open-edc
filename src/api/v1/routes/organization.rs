@@ -189,14 +189,26 @@ pub async fn update_organization(
     match update_organization_service(&pool, &update_organization).await {
         Ok(o) => (StatusCode::OK, Json(o)).into_response(),
         Err(e) => {
-            println!("{:?}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(GenericMessage {
-                    detail: "Error adding organization".to_string(),
-                }),
-            )
-                .into_response()
+            if e.to_string().contains("no rows returned") {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(GenericMessage {
+                        detail: format!(
+                            "No organization with id {} found",
+                            &update_organization.id
+                        ),
+                    }),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(GenericMessage {
+                        detail: "Error adding organization".to_string(),
+                    }),
+                )
+                    .into_response()
+            }
         }
     }
 }
