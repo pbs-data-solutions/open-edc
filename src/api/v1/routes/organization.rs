@@ -51,9 +51,16 @@ pub async fn create_organization(
     State(pool): State<PgPool>,
     Json(new_organization): Json<OrganizationCreate>,
 ) -> Response {
+    tracing::debug!("Creating new organization");
+
     match create_organization_service(&pool, &new_organization).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Organization successfully created");
+            (StatusCode::OK, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error creating organization: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
@@ -92,9 +99,16 @@ pub async fn create_organization(
     )
 )]
 pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Deleting organization {id}");
+
     match delete_organization_service(&pool, &id).await {
-        Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully deleted organization {id}");
+            (StatusCode::NO_CONTENT, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error deleting organization {id}: {}", e.to_string());
+
             if e.to_string().contains("No organization with the id") {
                 (
                     StatusCode::NOT_FOUND,
@@ -130,11 +144,15 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
     )
 )]
 pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Getting organization {id}");
+
     match get_organization_service(&pool, &id).await {
         Ok(organization) => {
             if let Some(o) = organization {
+                tracing::debug!("Successfully retrieved organization {id}");
                 (StatusCode::OK, Json(o)).into_response()
             } else {
+                tracing::debug!("Organization {id} not found");
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
@@ -144,13 +162,16 @@ pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>
                     .into_response()
             }
         }
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error getting organization".to_string(),
-            }),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!("Error getting organization {id}: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error getting organization".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -162,15 +183,23 @@ pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>
     responses((status = 200, description = "Organization information", body = [Organization])),
 )]
 pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
+    tracing::debug!("Getting all organizations");
+
     match get_organizations_service(&pool).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error retrieving organizations".to_string(),
-            }),
-        )
-            .into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully retrieved all organizaiton");
+            (StatusCode::OK, Json(o)).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Error retrieving all organizations: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error retrieving organizations".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -186,9 +215,16 @@ pub async fn update_organization(
     State(pool): State<PgPool>,
     Json(update_organization): Json<OrganizationUpdate>,
 ) -> Response {
+    tracing::debug!("Updating organization");
+
     match update_organization_service(&pool, &update_organization).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully updated organization");
+            (StatusCode::OK, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error updating organization: {}", e.to_string());
+
             if e.to_string().contains("no rows returned") {
                 (
                     StatusCode::BAD_REQUEST,

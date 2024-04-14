@@ -29,9 +29,17 @@ pub fn health_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
 }
 
 pub async fn health(State(pool): State<PgPool>) -> Response {
+    tracing::debug!("Checking server health");
+
     let db_status = match sqlx::query!("SELECT 1 as result").fetch_one(&pool).await {
-        Ok(_) => HealthStatus::Healthy,
-        Err(_) => HealthStatus::Unhealthy,
+        Ok(_) => {
+            tracing::debug!("Server is healthy");
+            HealthStatus::Healthy
+        }
+        Err(_) => {
+            tracing::debug!("Server is unhealthy");
+            HealthStatus::Unhealthy
+        }
     };
 
     Json(Health {

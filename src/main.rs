@@ -13,6 +13,8 @@ use anyhow::Result;
 use axum::{serve, Router};
 use clap::Parser;
 use dotenvy::dotenv;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{filter::EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -27,6 +29,16 @@ use crate::{
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+
+    // try_from_default_env reads the RUST_LOG environment if set
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "open_edc=debug,tower_http=debug,axum::rejection=trace".into()),
+        )
+        .init();
+
     let args = Cli::parse();
 
     match args.command {
@@ -37,7 +49,7 @@ async fn main() -> Result<()> {
             let listener = tokio::net::TcpListener::bind(format!("{server_url}:{server_port}"))
                 .await
                 .unwrap();
-
+            tracing::info!("listening on {}", listener.local_addr().unwrap());
             serve(listener, app).await.unwrap();
         }
     }
@@ -69,6 +81,7 @@ async fn app() -> Router {
     let config = Config::new(None);
 
     Router::new()
+        .layer(TraceLayer::new_for_http())
         .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .merge(routes::health::health_routes(pool.clone(), &config))
         .merge(routes::organization::organization_routes(

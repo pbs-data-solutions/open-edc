@@ -49,9 +49,16 @@ pub async fn create_study(
     State(pool): State<PgPool>,
     Json(new_study): Json<StudyCreate>,
 ) -> Response {
+    tracing::debug!("Creating study");
+
     match create_study_service(&pool, &new_study).await {
-        Ok(study) => (StatusCode::CREATED, Json(study)).into_response(),
+        Ok(study) => {
+            tracing::debug!("Successfully created study");
+            (StatusCode::CREATED, Json(study)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error creating study: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
@@ -98,9 +105,16 @@ pub async fn create_study(
     )
 )]
 pub async fn delete_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Deleting study {id}");
+
     match delete_study_service(&pool, &id).await {
-        Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully deleted study {id}");
+            (StatusCode::NO_CONTENT, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error deleting study: {}", e.to_string());
+
             if e.to_string().contains("No study with the id") {
                 (
                     StatusCode::NOT_FOUND,
@@ -133,11 +147,15 @@ pub async fn delete_study(State(pool): State<PgPool>, Path(id): Path<String>) ->
     )
 )]
 pub async fn get_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Getting study {id}");
+
     match get_study_service(&pool, &id).await {
         Ok(study) => {
             if let Some(s) = study {
+                tracing::debug!("Successfully retrieved study {id}");
                 (StatusCode::OK, Json(s)).into_response()
             } else {
+                tracing::error!("Study {id} not found");
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
@@ -147,13 +165,16 @@ pub async fn get_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Re
                     .into_response()
             }
         }
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error getting study".to_string(),
-            }),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!("Error retrieving study {id}: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error getting study".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -167,15 +188,23 @@ pub async fn get_study(State(pool): State<PgPool>, Path(id): Path<String>) -> Re
     )
 )]
 pub async fn get_studies(State(pool): State<PgPool>) -> Response {
+    tracing::debug!("Getting all studies");
+
     match get_studies_service(&pool).await {
-        Ok(u) => (StatusCode::OK, Json(u)).into_response(),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error retrieving studies".to_string(),
-            }),
-        )
-            .into_response(),
+        Ok(u) => {
+            tracing::debug!("Successfully retrieved all studies");
+            (StatusCode::OK, Json(u)).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Error retrieving all studies: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error retrieving studies".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -192,9 +221,16 @@ pub async fn update_study(
     State(pool): State<PgPool>,
     Json(study_update): Json<StudyUpdate>,
 ) -> Response {
+    tracing::debug!("Updating study");
+
     match update_study_service(&pool, &study_update).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully updated study");
+            (StatusCode::OK, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error updating study: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
