@@ -11,6 +11,8 @@ use std::env;
 
 use anyhow::Result;
 use axum::{serve, Router};
+use bb8::Pool;
+use bb8_redis::RedisConnectionManager;
 use clap::Parser;
 use dotenvy::dotenv;
 use tower_http::trace::TraceLayer;
@@ -58,6 +60,7 @@ async fn main() -> Result<()> {
 }
 
 async fn app() -> Router {
+    tracing::debug!("Connecting to postgres");
     let database_address = env::var("DATABASE_ADDRESS").unwrap_or("127.0.0.1".to_string());
     let database_user = env::var("DATASE_USER").unwrap_or("postgres".to_string());
     let database_user_password =
@@ -73,24 +76,63 @@ async fn app() -> Router {
         &database_port,
         "open_edc",
     );
-    let pool = db_client
+
+    let db_pool = db_client
         .create_pool(None, None)
         .await
         .expect("Unable to connect to the database");
+
+    match sqlx::query!("SELECT 1 as result").fetch_one(&db_pool).await {
+        Ok(_) => {
+            tracing::debug!("Successfully connected to Postgres and pinged it");
+        }
+        Err(_) => {
+            tracing::debug!("Error connecting to Postgres server");
+        }
+    };
+
+    tracing::debug!("Connecting to valkey");
+    let valkey_address = env::var("VALKEY_ADDRESS").unwrap_or("127.0.0.1".to_string());
+    let valkey_password = env::var("VALKEY_PASSWORD").unwrap_or("valkeypassword".to_string());
+    let valkey_port = env::var("VALKEY_PORT")
+        .unwrap_or("6379".to_string())
+        .parse::<u16>()
+        .unwrap_or(6379);
+    let manager = RedisConnectionManager::new(format!(
+        "redis://:{valkey_password}@{valkey_address}:{valkey_port}"
+    ))
+    .expect("Error creating valkey manager");
+    let valkey_pool = Pool::builder()
+        .build(manager)
+        .await
+        .expect("Error creating valkey pool");
+
+    let valkey_pool_clone = valkey_pool.clone();
+    let mut conn = valkey_pool_clone
+        .get()
+        .await
+        .expect("Error getting the valkey pool");
+    let result: String = redis::cmd("PING")
+        .query_async(&mut *conn)
+        .await
+        .expect("Error pinging valkey server");
+    assert_eq!(result, "PONG");
+    tracing::debug!("Successfully connected to valkey and pinged it");
 
     let config = Config::new(None);
 
     Router::new()
         .layer(TraceLayer::new_for_http())
         .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .merge(routes::health::health_routes(pool.clone(), &config))
+        .merge(routes::health::health_routes(db_pool.clone(), &config))
         .merge(routes::organization::organization_routes(
-            pool.clone(),
+            db_pool.clone(),
             &config,
         ))
-        .merge(routes::study::study_routes(pool.clone(), &config))
-        .merge(routes::user::user_routes(pool.clone(), &config))
-        .with_state(pool)
+        .merge(routes::study::study_routes(db_pool.clone(), &config))
+        .merge(routes::user::user_routes(db_pool.clone(), &config))
+        .with_state(db_pool)
+        .with_state(valkey_pool)
 }
 
 #[cfg(test)]
