@@ -24,7 +24,7 @@ migrate:
 test:
   cargo test
 
-dev:
+dev: migrate
   cargo watch -x "run -- start"
 
 db:
@@ -35,3 +35,6 @@ db-detached:
 
 stop-db:
   docker compose down db
+
+docker:
+  docker compose up
