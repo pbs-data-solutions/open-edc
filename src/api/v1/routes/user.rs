@@ -56,9 +56,24 @@ pub async fn user_add_study(
     State(pool): State<PgPool>,
     Json(user_study): Json<UserStudy>,
 ) -> Response {
+    tracing::debug!(
+        "Adding user {} to study {}",
+        &user_study.user_id,
+        &user_study.study_id,
+    );
+
     match add_user_to_study_service(&pool, &user_study.user_id, &user_study.study_id).await {
-        Ok(user) => (StatusCode::OK, Json(user)).into_response(),
+        Ok(user) => {
+            tracing::debug!(
+                "User {} successfully added to study {}",
+                &user_study.user_id,
+                &user_study.study_id
+            );
+            (StatusCode::OK, Json(user)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error adding user to study: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
@@ -114,9 +129,16 @@ pub async fn user_add_study(
     )
 )]
 pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCreate>) -> Response {
+    tracing::debug!("Creating new user");
+
     match create_user_service(&pool, &new_user).await {
-        Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
+        Ok(user) => {
+            tracing::debug!("User successfully created");
+            (StatusCode::CREATED, Json(user)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error creating user: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
@@ -163,9 +185,16 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
     )
 )]
 pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Deleting user {id}");
+
     match delete_user_service(&pool, &id).await {
-        Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully deleted user {id}");
+            (StatusCode::NO_CONTENT, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error deleting user: {}", e.to_string());
+
             if e.to_string().contains("No user with the id") {
                 (
                     StatusCode::NOT_FOUND,
@@ -198,11 +227,15 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> 
     )
 )]
 pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+    tracing::debug!("Getting user {id}");
+
     match get_user_service(&pool, &id).await {
         Ok(user) => {
             if let Some(u) = user {
+                tracing::debug!("User {id} successfully retrieved");
                 (StatusCode::OK, Json(u)).into_response()
             } else {
+                tracing::debug!("User {id} not fund");
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
@@ -212,13 +245,16 @@ pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Res
                     .into_response()
             }
         }
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error getting user".to_string(),
-            }),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!("Error getting user: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error getting user".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -232,15 +268,23 @@ pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Res
     )
 )]
 pub async fn get_users(State(pool): State<PgPool>) -> Response {
+    tracing::debug!("Getting all users");
+
     match get_users_service(&pool).await {
-        Ok(u) => (StatusCode::OK, Json(u)).into_response(),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GenericMessage {
-                detail: "Error retrieving users".to_string(),
-            }),
-        )
-            .into_response(),
+        Ok(u) => {
+            tracing::debug!("Successfully retrieved all users");
+            (StatusCode::OK, Json(u)).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Error retrieving all users: {}", e.to_string());
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(GenericMessage {
+                    detail: "Error retrieving users".to_string(),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -262,9 +306,16 @@ pub async fn user_remove_study(
     State(pool): State<PgPool>,
     Path((user_id, study_id)): Path<(String, String)>,
 ) -> Response {
+    tracing::debug!("Removing user {user_id} from study {study_id}");
+
     match remove_user_from_study_service(&pool, &user_id, &study_id).await {
-        Ok(o) => (StatusCode::NO_CONTENT, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Successfully removed user {user_id} from study {study_id}");
+            (StatusCode::NO_CONTENT, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error removing user from study: {}", e.to_string());
+
             if e.to_string().contains("user with the id") {
                 (
                     StatusCode::NOT_FOUND,
@@ -299,9 +350,16 @@ pub async fn update_user(
     State(pool): State<PgPool>,
     Json(user_update): Json<UserUpdate>,
 ) -> Response {
+    tracing::debug!("Updating user");
+
     match update_user_service(&pool, &user_update).await {
-        Ok(o) => (StatusCode::OK, Json(o)).into_response(),
+        Ok(o) => {
+            tracing::debug!("Succesfully updated user");
+            (StatusCode::OK, Json(o)).into_response()
+        }
         Err(e) => {
+            tracing::error!("Error updating user: {}", e.to_string());
+
             if e.to_string().contains("violates unique constraint") {
                 (
                     StatusCode::BAD_REQUEST,
