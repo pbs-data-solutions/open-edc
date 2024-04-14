@@ -5,7 +5,7 @@ use sqlx::postgres::PgPool;
 use crate::{
     models::{
         study::{Study, StudyInDb},
-        user::{User, UserCreate, UserInDb, UserUpdate},
+        user::{AccessLevel, User, UserCreate, UserInDb, UserUpdate},
     },
     services::{
         organization_services::get_organization_service, study_services::get_study_service,
@@ -96,10 +96,11 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
                 hashed_password,
                 organization_id,
                 active,
+                access_level,
                 date_added,
                 date_modified
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING
                 id,
                 user_name,
@@ -107,8 +108,9 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
                 last_name,
                 email,
                 hashed_password,
-                organization_id,
                 active,
+                organization_id,
+                access_level AS "access_level: AccessLevel",
                 date_added,
                 date_modified
         "#,
@@ -120,6 +122,7 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
         prepped_user.hashed_password,
         prepped_user.organization_id,
         prepped_user.active,
+        prepped_user.access_level as AccessLevel,
         prepped_user.date_added,
         prepped_user.date_modified,
     )
@@ -171,8 +174,9 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
                 last_name,
                 email,
                 hashed_password,
-                active,
                 organization_id,
+                active,
+                access_level AS "access_level: AccessLevel",
                 date_added,
                 date_modified
             FROM users
@@ -272,8 +276,9 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
                 last_name,
                 email,
                 hashed_password,
-                active,
                 organization_id,
+                active,
+                access_level AS "access_level: AccessLevel",
                 date_added,
                 date_modified
             FROM users
@@ -374,8 +379,9 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
                     last_name,
                     email,
                     hashed_password,
-                    active,
                     organization_id,
+                    active,
+                    access_level AS "access_level: AccessLevel",
                     date_added,
                     date_modified
             "#,
@@ -414,6 +420,7 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
                     hashed_password,
                     organization_id,
                     active,
+                    access_level AS "access_level: AccessLevel",
                     date_added,
                     date_modified
             "#,
