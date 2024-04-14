@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS studies(
   date_modified TIMESTAMP with time zone NOT NULL
 );
 
+CREATE TYPE accesslevel AS ENUM ('organization_admin', 'system_admin', 'user');
+
 CREATE TABLE IF NOT EXISTS users(
   id TEXT PRIMARY KEY,
   user_name TEXT NOT NULL UNIQUE,
@@ -25,11 +27,13 @@ CREATE TABLE IF NOT EXISTS users(
   hashed_password TEXT NOT NULL,
   organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
   active BOOLEAN NOT NULL,
+  access_level accesslevel NOT NULL,
   date_added TIMESTAMP with time zone NOT NULL,
   date_modified TIMESTAMP with time zone NOT NULL
 );
 
 CREATE INDEX ON users(email);
+CREATE INDEX ON users(access_level);
 
 CREATE TABLE IF NOT EXISTS user_studies(
   id TEXT PRIMARY KEY,

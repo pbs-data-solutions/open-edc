@@ -8,6 +8,14 @@ use crate::{
     utils::{generate_db_id, hash_password},
 };
 
+#[derive(Debug, Deserialize, Serialize, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
+pub enum AccessLevel {
+    OrganizationAdmin,
+    SystemAdmin,
+    User,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct UserInDb {
@@ -19,6 +27,7 @@ pub struct UserInDb {
     pub hashed_password: String,
     pub organization_id: String,
     pub active: bool,
+    pub access_level: AccessLevel,
     pub date_added: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
 }
@@ -40,8 +49,9 @@ impl UserInDb {
             last_name,
             email,
             hashed_password,
-            active: true,
             organization_id,
+            active: true,
+            access_level: AccessLevel::User,
             date_added: Utc::now(),
             date_modified: Utc::now(),
         })
