@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS studies(
   date_modified TIMESTAMP with time zone NOT NULL
 );
 
-CREATE TYPE accesslevel AS ENUM ('org_admin', 'system_admin', 'user');
+CREATE TYPE accesslevel AS ENUM ('organization_admin', 'system_admin', 'user');
 
 CREATE TABLE IF NOT EXISTS users(
   id TEXT PRIMARY KEY,

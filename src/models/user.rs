@@ -11,8 +11,8 @@ use crate::{
 #[derive(Debug, Deserialize, Serialize, sqlx::Type)]
 #[sqlx(rename_all = "snake_case")]
 pub enum AccessLevel {
-    Organization,
-    System,
+    OrganizationAdmin,
+    SystemAdmin,
     User,
 }
 
