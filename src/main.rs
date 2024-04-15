@@ -176,6 +176,21 @@ mod tests {
         DbClient::new("127.0.0.1", "postgres", "test_password", &5432, "open_edc")
     }
 
+    async fn valkey_pool() -> Pool<RedisConnectionManager> {
+        let valkey_address = "127.0.0.1".to_string();
+        let valkey_password = "valkeypassword".to_string();
+        let valkey_port = 6379;
+        let manager = RedisConnectionManager::new(format!(
+            "redis://:{valkey_password}@{valkey_address}:{valkey_port}"
+        ))
+        .expect("Error creating valkey manager");
+
+        Pool::builder()
+            .build(manager)
+            .await
+            .expect("Error creating valkey pool")
+    }
+
     #[tokio::test]
     async fn get_health() {
         let app = app().await;
@@ -533,11 +548,12 @@ mod tests {
     async fn get_user() {
         let app = app().await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&pool, &create_org)
+        let organization = create_organization_service(&db_pool, &create_org)
             .await
             .unwrap();
         let user_create = UserCreate {
@@ -548,7 +564,9 @@ mod tests {
             password: "Somepassword1!".to_string(),
             organization_id: organization.id,
         };
-        let user = create_user_service(&pool, &user_create).await.unwrap();
+        let user = create_user_service(&db_pool, &valkey_pool, &user_create)
+            .await
+            .unwrap();
 
         let response = app
             .oneshot(
@@ -589,11 +607,12 @@ mod tests {
     async fn add_user_to_study() {
         let app = app().await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&pool, &create_org)
+        let organization = create_organization_service(&db_pool, &create_org)
             .await
             .unwrap();
         let user_create = UserCreate {
@@ -604,14 +623,16 @@ mod tests {
             password: "Somepassword1!".to_string(),
             organization_id: organization.id.clone(),
         };
-        let user = create_user_service(&pool, &user_create).await.unwrap();
+        let user = create_user_service(&db_pool, &valkey_pool, &user_create)
+            .await
+            .unwrap();
         let study_create = StudyCreate {
             study_id: Uuid::new_v4().to_string(),
             study_name: Some("Study Name".to_string()),
             study_description: Some("Description".to_string()),
             organization_id: organization.id.clone(),
         };
-        let study = create_study_service(&pool, &study_create).await.unwrap();
+        let study = create_study_service(&db_pool, &study_create).await.unwrap();
 
         let response = app
             .oneshot(
