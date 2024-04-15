@@ -64,8 +64,16 @@ pub async fn user_add_study(
         &user_study.study_id,
     );
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match add_user_to_study_service(&db_pool, &user_study.user_id, &user_study.study_id).await {
+    match add_user_to_study_service(
+        &db_pool,
+        valkey_pool,
+        &user_study.user_id,
+        &user_study.study_id,
+    )
+    .await
+    {
         Ok(user) => {
             tracing::debug!(
                 "User {} successfully added to study {}",
@@ -127,7 +135,7 @@ pub async fn user_add_study(
     request_body = UserCreate,
     tag = "Users",
     responses(
-        (status = 200, description = "User added successfully", body = User),
+        (status = 201, description = "User added successfully", body = User),
         (status = 400, body = GenericMessage)
     )
 )]
@@ -137,8 +145,9 @@ pub async fn create_user(
 ) -> Response {
     tracing::debug!("Creating new user");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match create_user_service(&db_pool, &new_user).await {
+    match create_user_service(&db_pool, valkey_pool, &new_user).await {
         Ok(user) => {
             tracing::debug!("User successfully created");
             (StatusCode::CREATED, Json(user)).into_response()
@@ -194,8 +203,9 @@ pub async fn create_user(
 pub async fn delete_user(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Deleting user {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match delete_user_service(&db_pool, &id).await {
+    match delete_user_service(&db_pool, valkey_pool, &id).await {
         Ok(o) => {
             tracing::debug!("Successfully deleted user {id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -237,14 +247,15 @@ pub async fn delete_user(State(state): State<Arc<AppState>>, Path(id): Path<Stri
 pub async fn get_user(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Getting user {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match get_user_service(&db_pool, &id).await {
+    match get_user_service(&db_pool, valkey_pool, &id, false).await {
         Ok(user) => {
             if let Some(u) = user {
                 tracing::debug!("User {id} successfully retrieved");
                 (StatusCode::OK, Json(u)).into_response()
             } else {
-                tracing::debug!("User {id} not fund");
+                tracing::debug!("User {id} not found");
                 (
                     StatusCode::NOT_FOUND,
                     Json(GenericMessage {
@@ -318,8 +329,9 @@ pub async fn user_remove_study(
 ) -> Response {
     tracing::debug!("Removing user {user_id} from study {study_id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match remove_user_from_study_service(&db_pool, &user_id, &study_id).await {
+    match remove_user_from_study_service(&db_pool, valkey_pool, &user_id, &study_id).await {
         Ok(o) => {
             tracing::debug!("Successfully removed user {user_id} from study {study_id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -363,8 +375,9 @@ pub async fn update_user(
 ) -> Response {
     tracing::debug!("Updating user");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match update_user_service(&db_pool, &user_update).await {
+    match update_user_service(&db_pool, valkey_pool, &user_update).await {
         Ok(o) => {
             tracing::debug!("Succesfully updated user");
             (StatusCode::OK, Json(o)).into_response()

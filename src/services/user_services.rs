@@ -1,4 +1,6 @@
 use anyhow::{bail, Result};
+use bb8::Pool;
+use bb8_redis::RedisConnectionManager;
 use chrono::Utc;
 use sqlx::postgres::PgPool;
 
@@ -14,16 +16,18 @@ use crate::{
 };
 
 pub async fn add_user_to_study_service(
-    pool: &PgPool,
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
     user_id: &str,
     study_id: &str,
 ) -> Result<User> {
-    let user_org = if let Some(user) = get_user_service(pool, user_id).await? {
-        user.organization.id
-    } else {
-        bail!(format!("No user with id {user_id} found"));
-    };
-    let study_org = if let Some(study) = get_study_service(pool, study_id).await? {
+    let user_org =
+        if let Some(user) = get_user_service(db_pool, valkey_pool, user_id, false).await? {
+            user.organization.id
+        } else {
+            bail!(format!("No user with id {user_id} found"));
+        };
+    let study_org = if let Some(study) = get_study_service(db_pool, study_id).await? {
         study.organization.id
     } else {
         bail!(format!("No study with id {study_id} found"));
@@ -35,6 +39,7 @@ pub async fn add_user_to_study_service(
 
     let db_id = generate_db_id();
 
+    tracing::debug!("Adding user to study in database");
     sqlx::query!(
         r#"
             INSERT INTO user_studies (
@@ -52,18 +57,25 @@ pub async fn add_user_to_study_service(
         Utc::now(),
         Utc::now(),
     )
-    .execute(pool)
+    .execute(db_pool)
     .await?;
 
-    if let Some(user) = get_user_service(pool, user_id).await? {
+    if let Some(user) = get_user_service(db_pool, valkey_pool, user_id, true).await? {
+        tracing::debug!("User successfully added to study in database, updating cache");
+        add_user_to_cache(valkey_pool, &user).await?;
+        tracing::debug!("Cache successfully updated");
         Ok(user)
     } else {
         bail!("Error retrieving user");
     }
 }
 
-pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result<User> {
-    let organization = match get_organization_service(pool, &new_user.organization_id).await {
+pub async fn create_user_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+    new_user: &UserCreate,
+) -> Result<User> {
+    let organization = match get_organization_service(db_pool, &new_user.organization_id).await {
         Ok(org) => {
             if let Some(o) = org {
                 o
@@ -126,11 +138,12 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
         prepped_user.date_added,
         prepped_user.date_modified,
     )
-    .fetch_one(pool)
+    .fetch_one(db_pool)
     .await?;
 
-    let studies = get_user_studies_service(pool, &db_user.id).await?;
+    tracing::debug!("User successfully saved to database");
 
+    let studies = get_user_studies_service(db_pool, &db_user.id).await?;
     let user = User {
         id: db_user.id,
         user_name: db_user.user_name,
@@ -142,10 +155,18 @@ pub async fn create_user_service(pool: &PgPool, new_user: &UserCreate) -> Result
         active: db_user.active,
     };
 
+    tracing::debug!("Adding user to cache");
+    add_user_to_cache(valkey_pool, &user).await?;
+    tracing::debug!("User successfully saved to cache");
+
     Ok(user)
 }
 
-pub async fn delete_user_service(pool: &PgPool, id: &str) -> Result<()> {
+pub async fn delete_user_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+    id: &str,
+) -> Result<()> {
     let result = sqlx::query!(
         r#"
             DELETE FROM users
@@ -153,17 +174,52 @@ pub async fn delete_user_service(pool: &PgPool, id: &str) -> Result<()> {
         "#,
         id,
     )
-    .execute(pool)
+    .execute(db_pool)
     .await?;
 
     if result.rows_affected() > 0 {
+        tracing::debug!("User successfully deleted from database");
+
+        let mut conn = valkey_pool.get().await?;
+        redis::cmd("DEL")
+            .arg("users")
+            .arg(id)
+            .query_async(&mut *conn)
+            .await?;
+
+        tracing::debug!("User successfully deleted from cache");
         Ok(())
     } else {
         bail!(format!("No user with the id {id} found"));
     }
 }
 
-pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<User>> {
+pub async fn get_user_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+    user_id: &str,
+    skip_cache: bool,
+) -> Result<Option<User>> {
+    if !skip_cache {
+        tracing::debug!("Checking for user in cache");
+        let mut conn = valkey_pool.get().await?;
+        let cached_user_str: Option<String> = redis::cmd("HGET")
+            .arg("users")
+            .arg(user_id)
+            .query_async(&mut *conn)
+            .await?;
+
+        match cached_user_str {
+            Some(c) => {
+                tracing::debug!("User found in cache");
+                let cached_user: User = serde_json::from_str(&c)?;
+                return Ok(Some(cached_user));
+            }
+            None => tracing::debug!("User not found in cache"),
+        }
+    }
+
+    tracing::debug!("Checking for user in database");
     let db_user = sqlx::query_as!(
         UserInDb,
         r#"
@@ -184,12 +240,12 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
         "#,
         user_id,
     )
-    .fetch_optional(pool)
+    .fetch_optional(db_pool)
     .await?;
 
     if let Some(u) = db_user {
-        let organization = get_organization_service(pool, &u.organization_id).await;
-        let studies = get_user_studies_service(pool, &u.id).await?;
+        let organization = get_organization_service(db_pool, &u.organization_id).await;
+        let studies = get_user_studies_service(db_pool, &u.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -204,6 +260,9 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
                     studies,
                 };
 
+                tracing::debug!("User found in database, adding to cache");
+                add_user_to_cache(valkey_pool, &user).await?;
+                tracing::debug!("User successfully added to cache");
                 Ok(Some(user))
             } else {
                 bail!("No organization found for user");
@@ -216,7 +275,10 @@ pub async fn get_user_service(pool: &PgPool, user_id: &str) -> Result<Option<Use
     }
 }
 
-pub async fn get_user_studies_service(pool: &PgPool, user_id: &str) -> Result<Option<Vec<Study>>> {
+pub async fn get_user_studies_service(
+    db_pool: &PgPool,
+    user_id: &str,
+) -> Result<Option<Vec<Study>>> {
     let db_studies: Vec<StudyInDb> = sqlx::query_as!(
         StudyInDb,
         r#"
@@ -233,12 +295,12 @@ pub async fn get_user_studies_service(pool: &PgPool, user_id: &str) -> Result<Op
         "#,
         user_id,
     )
-    .fetch_all(pool)
+    .fetch_all(db_pool)
     .await?;
 
     if !db_studies.is_empty() {
         let organization =
-            match get_organization_service(pool, &db_studies[0].organization_id).await {
+            match get_organization_service(db_pool, &db_studies[0].organization_id).await {
                 Ok(org) => {
                     if let Some(o) = org {
                         o
@@ -265,7 +327,7 @@ pub async fn get_user_studies_service(pool: &PgPool, user_id: &str) -> Result<Op
     }
 }
 
-pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
+pub async fn get_users_service(db_pool: &PgPool) -> Result<Vec<User>> {
     let db_users = sqlx::query_as!(
         UserInDb,
         r#"
@@ -284,14 +346,14 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
             FROM users
         "#,
     )
-    .fetch_all(pool)
+    .fetch_all(db_pool)
     .await?;
 
     let mut users: Vec<User> = Vec::new();
 
     for db_user in db_users.into_iter() {
-        let organization = get_organization_service(pool, &db_user.organization_id).await;
-        let studies = get_user_studies_service(pool, &db_user.id).await?;
+        let organization = get_organization_service(db_pool, &db_user.organization_id).await;
+        let studies = get_user_studies_service(db_pool, &db_user.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -319,10 +381,12 @@ pub async fn get_users_service(pool: &PgPool) -> Result<Vec<User>> {
 }
 
 pub async fn remove_user_from_study_service(
-    pool: &PgPool,
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
     user_id: &str,
     study_id: &str,
 ) -> Result<()> {
+    tracing::debug!("Removing use from database");
     let result = sqlx::query!(
         r#"
             DELETE FROM user_studies
@@ -331,10 +395,23 @@ pub async fn remove_user_from_study_service(
         user_id,
         study_id,
     )
-    .execute(pool)
+    .execute(db_pool)
     .await?;
 
     if result.rows_affected() > 0 {
+        tracing::debug!("successfully removed user from database, updating cache");
+        match get_user_service(db_pool, valkey_pool, user_id, true).await {
+            Ok(user) => match user {
+                Some(u) => {
+                    add_user_to_cache(valkey_pool, &u).await?;
+                    tracing::debug!("Cache successfully updated");
+                }
+                None => tracing::debug!("Error updating cache, user not found"),
+            },
+            Err(e) => {
+                tracing::error!("Error adding user to cache: {}", e.to_string());
+            }
+        }
         Ok(())
     } else {
         bail!(format!(
@@ -343,8 +420,13 @@ pub async fn remove_user_from_study_service(
     }
 }
 
-pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Result<User> {
-    let organization = match get_organization_service(pool, &updated_user.organization_id).await {
+pub async fn update_user_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+    updated_user: &UserUpdate,
+) -> Result<User> {
+    let organization = match get_organization_service(db_pool, &updated_user.organization_id).await
+    {
         Ok(org) => {
             if let Some(o) = org {
                 o
@@ -355,7 +437,9 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
         Err(_) => bail!("Error retrieving organization"),
     };
 
-    let studies = get_user_studies_service(pool, &updated_user.id).await?;
+    let studies = get_user_studies_service(db_pool, &updated_user.id).await?;
+
+    tracing::debug!("Updating user in database");
     let db_user = if let Some(password) = &updated_user.password {
         let hashed_password = hash_password(password).await?;
         sqlx::query_as!(
@@ -395,7 +479,7 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
             updated_user.organization_id,
             Utc::now(),
         )
-        .fetch_one(pool)
+        .fetch_one(db_pool)
         .await?
     } else {
         sqlx::query_as!(
@@ -433,9 +517,10 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
             updated_user.organization_id,
             Utc::now(),
         )
-        .fetch_one(pool)
+        .fetch_one(db_pool)
         .await?
     };
+    tracing::debug!("Successfully updated user in database");
 
     let user = User {
         id: db_user.id,
@@ -448,5 +533,21 @@ pub async fn update_user_service(pool: &PgPool, updated_user: &UserUpdate) -> Re
         active: db_user.active,
     };
 
+    tracing::debug!("Adding updated user to cache");
+    add_user_to_cache(valkey_pool, &user).await?;
+
     Ok(user)
+}
+
+async fn add_user_to_cache(pool: &Pool<RedisConnectionManager>, user: &User) -> Result<()> {
+    let user_json = serde_json::to_string(user)?;
+    let mut conn = pool.get().await?;
+    redis::cmd("HSET")
+        .arg("users")
+        .arg(&user.id)
+        .arg(user_json)
+        .query_async(&mut *conn)
+        .await?;
+
+    Ok(())
 }
