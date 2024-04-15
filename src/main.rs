@@ -139,12 +139,12 @@ async fn app() -> Router {
         .layer(TraceLayer::new_for_http())
         .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .merge(routes::health::health_routes(state.clone(), &config))
-        /* .merge(routes::organization::organization_routes(
-            db_pool.clone(),
+        .merge(routes::organization::organization_routes(
+            state.clone(),
             &config,
         ))
-        .merge(routes::study::study_routes(db_pool.clone(), &config))
-        .merge(routes::user::user_routes(db_pool.clone(), &config)) */
+        .merge(routes::study::study_routes(state.clone(), &config))
+        .merge(routes::user::user_routes(state.clone(), &config))
         .with_state(state)
 }
 
@@ -195,7 +195,7 @@ mod tests {
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             body,
-            json!({ "db": "healthy".to_string(), "server": "healthy".to_string() })
+            json!({ "db": "healthy".to_string(), "server": "healthy".to_string(), "valkey": "healthy".to_string() })
         );
     }
 

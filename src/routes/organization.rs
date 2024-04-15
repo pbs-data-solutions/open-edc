@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -5,7 +7,6 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use sqlx::postgres::PgPool;
 
 use crate::{
     config::Config,
@@ -17,23 +18,24 @@ use crate::{
         create_organization_service, delete_organization_service, get_organization_service,
         get_organizations_service, update_organization_service,
     },
+    state::AppState,
 };
 
-pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
+pub fn organization_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
     let prefix = format!("{}/organization", config.api_v1_prefix);
     Router::new()
         .route(&prefix, post(create_organization))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&format!("{prefix}/:id"), delete(delete_organization))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&format!("{prefix}/:id"), get(get_organization))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&prefix, get(get_organizations))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         // TODO: I want to make this a patch but need to figure out how to diferentiate between
         // default None and user set None in serde.
         .route(&prefix, put(update_organization))
-        .with_state(pool.clone())
+        .with_state(state.clone())
 }
 
 /// Add a new organization
@@ -48,12 +50,13 @@ pub fn organization_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     )
 )]
 pub async fn create_organization(
-    State(pool): State<PgPool>,
+    State(state): State<Arc<AppState>>,
     Json(new_organization): Json<OrganizationCreate>,
 ) -> Response {
     tracing::debug!("Creating new organization");
+    let db_pool = state.db_state.pool.clone();
 
-    match create_organization_service(&pool, &new_organization).await {
+    match create_organization_service(&db_pool, &new_organization).await {
         Ok(o) => {
             tracing::debug!("Organization successfully created");
             (StatusCode::OK, Json(o)).into_response()
@@ -98,10 +101,14 @@ pub async fn create_organization(
         (status = 404, description = "Organization not found", body = GenericMessage),
     )
 )]
-pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+pub async fn delete_organization(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Response {
     tracing::debug!("Deleting organization {id}");
+    let db_pool = state.db_state.pool.clone();
 
-    match delete_organization_service(&pool, &id).await {
+    match delete_organization_service(&db_pool, &id).await {
         Ok(o) => {
             tracing::debug!("Successfully deleted organization {id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -143,10 +150,14 @@ pub async fn delete_organization(State(pool): State<PgPool>, Path(id): Path<Stri
         (status = 404, description = "Organization not found", body = GenericMessage),
     )
 )]
-pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+pub async fn get_organization(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Response {
     tracing::debug!("Getting organization {id}");
+    let db_pool = state.db_state.pool.clone();
 
-    match get_organization_service(&pool, &id).await {
+    match get_organization_service(&db_pool, &id).await {
         Ok(organization) => {
             if let Some(o) = organization {
                 tracing::debug!("Successfully retrieved organization {id}");
@@ -182,10 +193,11 @@ pub async fn get_organization(State(pool): State<PgPool>, Path(id): Path<String>
     tag = "Organizations",
     responses((status = 200, description = "Organization information", body = [Organization])),
 )]
-pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
+pub async fn get_organizations(State(state): State<Arc<AppState>>) -> Response {
     tracing::debug!("Getting all organizations");
+    let db_pool = state.db_state.pool.clone();
 
-    match get_organizations_service(&pool).await {
+    match get_organizations_service(&db_pool).await {
         Ok(o) => {
             tracing::debug!("Successfully retrieved all organizaiton");
             (StatusCode::OK, Json(o)).into_response()
@@ -212,12 +224,13 @@ pub async fn get_organizations(State(pool): State<PgPool>) -> Response {
     responses((status = 200, description = "Organization added successfully", body = Organization)),
 )]
 pub async fn update_organization(
-    State(pool): State<PgPool>,
+    State(state): State<Arc<AppState>>,
     Json(update_organization): Json<OrganizationUpdate>,
 ) -> Response {
     tracing::debug!("Updating organization");
+    let db_pool = state.db_state.pool.clone();
 
-    match update_organization_service(&pool, &update_organization).await {
+    match update_organization_service(&db_pool, &update_organization).await {
         Ok(o) => {
             tracing::debug!("Successfully updated organization");
             (StatusCode::OK, Json(o)).into_response()
