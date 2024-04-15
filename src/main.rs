@@ -1,9 +1,9 @@
-mod api;
 mod cli;
 mod config;
 mod db;
 mod models;
 mod openapi;
+mod routes;
 mod services;
 mod utils;
 
@@ -21,7 +21,6 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-    api::v1::routes,
     cli::{Cli, Command},
     config::Config,
     db::DbClient,
@@ -169,7 +168,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/api/v1/health")
+                    .uri("/api/health")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -194,7 +193,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
-                    .uri("/api/v1/organization")
+                    .uri("/api/organization")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_vec(&json!({ "name": name })).unwrap(),
@@ -222,7 +221,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::DELETE)
-                    .uri(&format!("/api/v1/organization/{}", &new_org.id))
+                    .uri(&format!("/api/organization/{}", &new_org.id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -255,7 +254,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::DELETE)
-                    .uri(&format!("/api/v1/organization/{}", &org_id))
+                    .uri(&format!("/api/organization/{}", &org_id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -279,7 +278,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/organization/{}", &new_org.id))
+                    .uri(&format!("/api/organization/{}", &new_org.id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -301,7 +300,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/organization/{}", &org_id))
+                    .uri(&format!("/api/organization/{}", &org_id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -325,7 +324,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/api/v1/organization")
+                    .uri("/api/organization")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -358,7 +357,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::PUT)
-                    .uri("/api/v1/organization")
+                    .uri("/api/organization")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_vec(
@@ -396,7 +395,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
-                    .uri("/api/v1/study")
+                    .uri("/api/study")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_vec(&json!({
@@ -442,7 +441,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/study/{}", &study.id))
+                    .uri(&format!("/api/study/{}", &study.id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -464,7 +463,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/study/{}", &study_id))
+                    .uri(&format!("/api/study/{}", &study_id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -490,7 +489,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
-                    .uri("/api/v1/user")
+                    .uri("/api/user")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_vec(&json!({
@@ -540,7 +539,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/user/{}", &user.id))
+                    .uri(&format!("/api/user/{}", &user.id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -562,7 +561,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(&format!("/api/v1/user/{}", &user_id))
+                    .uri(&format!("/api/user/{}", &user_id))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -604,7 +603,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(http::Method::POST)
-                    .uri("/api/v1/user/study")
+                    .uri("/api/user/study")
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_vec(&json!({

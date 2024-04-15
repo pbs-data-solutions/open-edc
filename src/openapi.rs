@@ -1,27 +1,27 @@
 use utoipa::OpenApi;
 
-use crate::{api, models};
+use crate::{models, routes};
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::v1::routes::organization::create_organization,
-        api::v1::routes::organization::delete_organization,
-        api::v1::routes::organization::get_organization,
-        api::v1::routes::organization::get_organizations,
-        api::v1::routes::organization::update_organization,
-        api::v1::routes::study::create_study,
-        api::v1::routes::study::delete_study,
-        api::v1::routes::study::get_studies,
-        api::v1::routes::study::get_study,
-        api::v1::routes::study::update_study,
-        api::v1::routes::user::create_user,
-        api::v1::routes::user::delete_user,
-        api::v1::routes::user::get_user,
-        api::v1::routes::user::get_users,
-        api::v1::routes::user::update_user,
-        api::v1::routes::user::user_add_study,
-        api::v1::routes::user::user_remove_study,
+        routes::organization::create_organization,
+        routes::organization::delete_organization,
+        routes::organization::get_organization,
+        routes::organization::get_organizations,
+        routes::organization::update_organization,
+        routes::study::create_study,
+        routes::study::delete_study,
+        routes::study::get_studies,
+        routes::study::get_study,
+        routes::study::update_study,
+        routes::user::create_user,
+        routes::user::delete_user,
+        routes::user::get_user,
+        routes::user::get_users,
+        routes::user::update_user,
+        routes::user::user_add_study,
+        routes::user::user_remove_study,
     ),
     components(schemas(
         models::messages::GenericMessage,
