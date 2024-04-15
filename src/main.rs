@@ -8,12 +8,10 @@ mod services;
 mod state;
 mod utils;
 
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use axum::{serve, Router};
-use bb8::Pool;
-use bb8_redis::RedisConnectionManager;
 use clap::Parser;
 use dotenvy::dotenv;
 use tower_http::trace::TraceLayer;
@@ -24,9 +22,9 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::{
     cli::{Cli, Command},
     config::Config,
-    db::DbClient,
+    db::{create_db_state, create_valkey_state},
     openapi::ApiDoc,
-    state::{AppState, DbState, ValkeyState},
+    state::AppState,
 };
 
 #[tokio::main]
@@ -61,72 +59,25 @@ async fn main() -> Result<()> {
 }
 
 async fn app() -> Router {
-    tracing::debug!("Connecting to postgres");
-    let database_address = env::var("DATABASE_ADDRESS").unwrap_or("127.0.0.1".to_string());
-    let database_user = env::var("DATASE_USER").unwrap_or("postgres".to_string());
-    let database_user_password =
-        env::var("DATASE_USER_PASSWORD").unwrap_or("test_password".to_string());
-    let database_port = env::var("DATABASE_PORT")
-        .unwrap_or("5432".to_string())
-        .parse::<u16>()
-        .unwrap_or(5432);
-    let db_client = DbClient::new(
-        &database_address,
-        &database_user,
-        &database_user_password,
-        &database_port,
-        "open_edc",
-    );
-
-    let db_pool = db_client
-        .create_pool(None, None)
-        .await
-        .expect("Unable to connect to the database");
-
-    match sqlx::query!("SELECT 1 as result").fetch_one(&db_pool).await {
-        Ok(_) => {
-            tracing::debug!("Successfully connected to Postgres and pinged it");
-        }
-        Err(_) => {
-            tracing::debug!("Error connecting to Postgres server");
+    tracing::debug!("Creating db_state");
+    let db_state = match create_db_state().await {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::error!("Error creating db_state: {}", e.to_string());
+            panic!("Unable to connect to database");
         }
     };
+    tracing::debug!("Successfully created db_state");
 
-    let db_state = DbState {
-        pool: db_pool.clone(),
+    tracing::debug!("Creating valkey_state");
+    let valkey_state = match create_valkey_state().await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!("Error creating valkey_state: {}", e.to_string());
+            panic!("Unable to connect to valkey");
+        }
     };
-
-    tracing::debug!("Connecting to valkey");
-    let valkey_address = env::var("VALKEY_ADDRESS").unwrap_or("127.0.0.1".to_string());
-    let valkey_password = env::var("VALKEY_PASSWORD").unwrap_or("valkeypassword".to_string());
-    let valkey_port = env::var("VALKEY_PORT")
-        .unwrap_or("6379".to_string())
-        .parse::<u16>()
-        .unwrap_or(6379);
-    let manager = RedisConnectionManager::new(format!(
-        "redis://:{valkey_password}@{valkey_address}:{valkey_port}"
-    ))
-    .expect("Error creating valkey manager");
-    let valkey_pool = Pool::builder()
-        .build(manager)
-        .await
-        .expect("Error creating valkey pool");
-
-    let valkey_pool_clone = valkey_pool.clone();
-    let mut conn = valkey_pool_clone
-        .get()
-        .await
-        .expect("Error getting the valkey pool");
-    let result: String = redis::cmd("PING")
-        .query_async(&mut *conn)
-        .await
-        .expect("Error pinging valkey server");
-    assert_eq!(result, "PONG");
-
-    let valkey_state = ValkeyState {
-        pool: valkey_pool.clone(),
-    };
-    tracing::debug!("Successfully connected to valkey and pinged it");
+    tracing::debug!("Successfully created valkey_state");
 
     let state = Arc::new(AppState {
         db_state,
@@ -167,10 +118,14 @@ mod tests {
         body::Body,
         http::{self, Request, StatusCode},
     };
+    use bb8::Pool;
+    use bb8_redis::RedisConnectionManager;
     use http_body_util::BodyExt; // for `collect`
     use serde_json::{json, Value};
     use tower::ServiceExt; // for `oneshot`
     use uuid::Uuid;
+
+    use crate::db::DbClient;
 
     fn db_client() -> DbClient {
         DbClient::new("127.0.0.1", "postgres", "test_password", &5432, "open_edc")
