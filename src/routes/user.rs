@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -5,7 +7,6 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use sqlx::postgres::PgPool;
 
 use crate::{
     config::Config,
@@ -15,30 +16,31 @@ use crate::{
         add_user_to_study_service, create_user_service, delete_user_service, get_user_service,
         get_users_service, remove_user_from_study_service, update_user_service,
     },
+    state::AppState,
 };
 
-pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
+pub fn user_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
     let prefix = format!("{}/user", config.api_v1_prefix);
     Router::new()
         .route(&prefix, post(create_user))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&format!("{prefix}/:id"), delete(delete_user))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&format!("{prefix}/:id"), get(get_user))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&prefix, get(get_users))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         // TODO: I want to make this a patch but need to figure out how to diferentiate between
         // default None and user set None in serde.
         .route(&prefix, put(update_user))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(&format!("{prefix}/study"), post(user_add_study))
-        .with_state(pool.clone())
+        .with_state(state.clone())
         .route(
             &format!("{prefix}/study/:user_id/:study_id"),
             delete(user_remove_study),
         )
-        .with_state(pool.clone())
+        .with_state(state.clone())
 }
 
 /// Add user to a study
@@ -53,7 +55,7 @@ pub fn user_routes(pool: PgPool, config: &Config) -> Router<PgPool> {
     )
 )]
 pub async fn user_add_study(
-    State(pool): State<PgPool>,
+    State(state): State<Arc<AppState>>,
     Json(user_study): Json<UserStudy>,
 ) -> Response {
     tracing::debug!(
@@ -61,8 +63,9 @@ pub async fn user_add_study(
         &user_study.user_id,
         &user_study.study_id,
     );
+    let db_pool = state.db_state.pool.clone();
 
-    match add_user_to_study_service(&pool, &user_study.user_id, &user_study.study_id).await {
+    match add_user_to_study_service(&db_pool, &user_study.user_id, &user_study.study_id).await {
         Ok(user) => {
             tracing::debug!(
                 "User {} successfully added to study {}",
@@ -128,10 +131,14 @@ pub async fn user_add_study(
         (status = 400, body = GenericMessage)
     )
 )]
-pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCreate>) -> Response {
+pub async fn create_user(
+    State(state): State<Arc<AppState>>,
+    Json(new_user): Json<UserCreate>,
+) -> Response {
     tracing::debug!("Creating new user");
+    let db_pool = state.db_state.pool.clone();
 
-    match create_user_service(&pool, &new_user).await {
+    match create_user_service(&db_pool, &new_user).await {
         Ok(user) => {
             tracing::debug!("User successfully created");
             (StatusCode::CREATED, Json(user)).into_response()
@@ -184,10 +191,11 @@ pub async fn create_user(State(pool): State<PgPool>, Json(new_user): Json<UserCr
         (status = 404, description = "User not found", body = GenericMessage),
     )
 )]
-pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+pub async fn delete_user(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Deleting user {id}");
+    let db_pool = state.db_state.pool.clone();
 
-    match delete_user_service(&pool, &id).await {
+    match delete_user_service(&db_pool, &id).await {
         Ok(o) => {
             tracing::debug!("Successfully deleted user {id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -226,10 +234,11 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<String>) -> 
         (status = 404, description = "User not found", body = GenericMessage)
     )
 )]
-pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Response {
+pub async fn get_user(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Getting user {id}");
+    let db_pool = state.db_state.pool.clone();
 
-    match get_user_service(&pool, &id).await {
+    match get_user_service(&db_pool, &id).await {
         Ok(user) => {
             if let Some(u) = user {
                 tracing::debug!("User {id} successfully retrieved");
@@ -267,10 +276,11 @@ pub async fn get_user(State(pool): State<PgPool>, Path(id): Path<String>) -> Res
         (status = 200, description = "All users information", body = [User]),
     )
 )]
-pub async fn get_users(State(pool): State<PgPool>) -> Response {
+pub async fn get_users(State(state): State<Arc<AppState>>) -> Response {
     tracing::debug!("Getting all users");
+    let db_pool = state.db_state.pool.clone();
 
-    match get_users_service(&pool).await {
+    match get_users_service(&db_pool).await {
         Ok(u) => {
             tracing::debug!("Successfully retrieved all users");
             (StatusCode::OK, Json(u)).into_response()
@@ -303,12 +313,13 @@ pub async fn get_users(State(pool): State<PgPool>) -> Response {
     )
 )]
 pub async fn user_remove_study(
-    State(pool): State<PgPool>,
+    State(state): State<Arc<AppState>>,
     Path((user_id, study_id)): Path<(String, String)>,
 ) -> Response {
     tracing::debug!("Removing user {user_id} from study {study_id}");
+    let db_pool = state.db_state.pool.clone();
 
-    match remove_user_from_study_service(&pool, &user_id, &study_id).await {
+    match remove_user_from_study_service(&db_pool, &user_id, &study_id).await {
         Ok(o) => {
             tracing::debug!("Successfully removed user {user_id} from study {study_id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -347,12 +358,13 @@ pub async fn user_remove_study(
     responses((status = 400, body = GenericMessage)),
 )]
 pub async fn update_user(
-    State(pool): State<PgPool>,
+    State(state): State<Arc<AppState>>,
     Json(user_update): Json<UserUpdate>,
 ) -> Response {
     tracing::debug!("Updating user");
+    let db_pool = state.db_state.pool.clone();
 
-    match update_user_service(&pool, &user_update).await {
+    match update_user_service(&db_pool, &user_update).await {
         Ok(o) => {
             tracing::debug!("Succesfully updated user");
             (StatusCode::OK, Json(o)).into_response()

@@ -5,9 +5,10 @@ mod models;
 mod openapi;
 mod routes;
 mod services;
+mod state;
 mod utils;
 
-use std::env;
+use std::{env, sync::Arc};
 
 use anyhow::Result;
 use axum::{serve, Router};
@@ -25,6 +26,7 @@ use crate::{
     config::Config,
     db::DbClient,
     openapi::ApiDoc,
+    state::{AppState, DbState, ValkeyState},
 };
 
 #[tokio::main]
@@ -90,6 +92,10 @@ async fn app() -> Router {
         }
     };
 
+    let db_state = DbState {
+        pool: db_pool.clone(),
+    };
+
     tracing::debug!("Connecting to valkey");
     let valkey_address = env::var("VALKEY_ADDRESS").unwrap_or("127.0.0.1".to_string());
     let valkey_password = env::var("VALKEY_PASSWORD").unwrap_or("valkeypassword".to_string());
@@ -116,22 +122,30 @@ async fn app() -> Router {
         .await
         .expect("Error pinging valkey server");
     assert_eq!(result, "PONG");
+
+    let valkey_state = ValkeyState {
+        pool: valkey_pool.clone(),
+    };
     tracing::debug!("Successfully connected to valkey and pinged it");
+
+    let state = Arc::new(AppState {
+        db_state,
+        valkey_state,
+    });
 
     let config = Config::new(None);
 
     Router::new()
         .layer(TraceLayer::new_for_http())
         .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .merge(routes::health::health_routes(db_pool.clone(), &config))
+        .merge(routes::health::health_routes(state.clone(), &config))
         .merge(routes::organization::organization_routes(
-            db_pool.clone(),
+            state.clone(),
             &config,
         ))
-        .merge(routes::study::study_routes(db_pool.clone(), &config))
-        .merge(routes::user::user_routes(db_pool.clone(), &config))
-        .with_state(db_pool)
-        .with_state(valkey_pool)
+        .merge(routes::study::study_routes(state.clone(), &config))
+        .merge(routes::user::user_routes(state.clone(), &config))
+        .with_state(state)
 }
 
 #[cfg(test)]
@@ -181,7 +195,7 @@ mod tests {
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             body,
-            json!({ "db": "healthy".to_string(), "server": "healthy".to_string() })
+            json!({ "db": "healthy".to_string(), "server": "healthy".to_string(), "valkey": "healthy".to_string() })
         );
     }
 
