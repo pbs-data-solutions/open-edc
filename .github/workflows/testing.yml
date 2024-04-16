@@ -8,12 +8,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   RUSTFLAGS: "-D warnings"
-  DATABASE_ADDRESS: 127.0.0.1
-  DATABASE_PORT: 5432
   DATABASE_USER: postgres
-  DATABASE_USER_PASSWORD: test_password
-  DATABASE_NAME: open_edc
-  DATABASE_URL: postgresql://postgres:test_password@127.0.0.1:5432/open_edc
+  DATABASE_PASSWORD: test_password
+  DATABASE_URL: postgresql://postgres:test_password@127.0.0.1:5432/open_edc # for sqlx
+  VALKEY_PASSWORD: valkeypassword
 jobs:
   clippy:
     name: Clippy
