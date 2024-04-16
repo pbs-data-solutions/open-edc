@@ -13,7 +13,7 @@ argon2 = { version = "0.5.3", features = ["std"] }
 axum = "0.7.5"
 bb8 = "0.8.3"
 bb8-redis = "0.15.0"
-chrono = { version = "0.4.37", features = ["serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.4", features = ["derive"] }
 dotenvy = "0.15.7"
 redis = { version = "0.25.3", features = ["tokio-comp"] }
