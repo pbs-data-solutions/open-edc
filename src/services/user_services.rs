@@ -27,11 +27,12 @@ pub async fn add_user_to_study_service(
         } else {
             bail!(format!("No user with id {user_id} found"));
         };
-    let study_org = if let Some(study) = get_study_service(db_pool, study_id).await? {
-        study.organization.id
-    } else {
-        bail!(format!("No study with id {study_id} found"));
-    };
+    let study_org =
+        if let Some(study) = get_study_service(db_pool, valkey_pool, study_id, false).await? {
+            study.organization.id
+        } else {
+            bail!(format!("No study with id {study_id} found"));
+        };
 
     if user_org != study_org {
         bail!("Study id {study_id} not found");

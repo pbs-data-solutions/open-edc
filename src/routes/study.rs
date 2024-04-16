@@ -53,8 +53,9 @@ pub async fn create_study(
 ) -> Response {
     tracing::debug!("Creating study");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match create_study_service(&db_pool, &new_study).await {
+    match create_study_service(&db_pool, valkey_pool, &new_study).await {
         Ok(study) => {
             tracing::debug!("Successfully created study");
             (StatusCode::CREATED, Json(study)).into_response()
@@ -110,8 +111,9 @@ pub async fn create_study(
 pub async fn delete_study(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Deleting study {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match delete_study_service(&db_pool, &id).await {
+    match delete_study_service(&db_pool, valkey_pool, &id).await {
         Ok(o) => {
             tracing::debug!("Successfully deleted study {id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -153,8 +155,9 @@ pub async fn delete_study(State(state): State<Arc<AppState>>, Path(id): Path<Str
 pub async fn get_study(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     tracing::debug!("Getting study {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match get_study_service(&db_pool, &id).await {
+    match get_study_service(&db_pool, valkey_pool, &id, false).await {
         Ok(study) => {
             if let Some(s) = study {
                 tracing::debug!("Successfully retrieved study {id}");
@@ -229,8 +232,9 @@ pub async fn update_study(
 ) -> Response {
     tracing::debug!("Updating study");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match update_study_service(&db_pool, &study_update).await {
+    match update_study_service(&db_pool, valkey_pool, &study_update).await {
         Ok(o) => {
             tracing::debug!("Successfully updated study");
             (StatusCode::OK, Json(o)).into_response()
