@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                study_name,\n                study_id,\n                study_description,\n                organization_id,\n                date_added,\n                date_modified\n            FROM studies\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "study_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "study_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "study_description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "organization_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "date_added",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "date_modified",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d21592e297fddc4a2713db704ec3607b6ea78e61b9d57946c3dcfc05d1a5dee7"
+}

@@ -20,6 +20,7 @@ pub struct DbClient {
 impl DbClient {
     pub fn new(url: &str, user_name: &str, password: &str, port: &u16, db_name: &str) -> Self {
         let uri = format!("postgresql://{user_name}:{password}@{url}:{port}/{db_name}");
+        tracing::debug!("{uri}");
 
         DbClient { uri }
     }

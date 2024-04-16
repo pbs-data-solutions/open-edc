@@ -21,6 +21,10 @@ fmt:
 migrate:
   sqlx migrate run
 
+prepare:
+  # Prepare sqlx for offline build
+  cargo sqlx prepare
+
 test:
   cargo test
 
@@ -37,4 +41,13 @@ stop-db:
   docker compose down db
 
 docker:
+  docker compose up db valkey
+
+docker-full:
   docker compose up
+
+docker-down:
+  docker compose down
+
+docker-build-dev: prepare
+  docker build -t open-edc:dev .

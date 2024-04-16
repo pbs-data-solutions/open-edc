@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO studies (\n                id,\n                study_id,\n                study_name,\n                study_description,\n                organization_id,\n                date_added,\n                date_modified\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            RETURNING\n                id,\n                study_id,\n                study_name,\n                study_description,\n                organization_id,\n                date_added,\n                date_modified\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "study_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "study_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "study_description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "organization_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "date_added",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "date_modified",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "19cc8fde822fa8f5634e8c99e604cc52d8916dd76944d472bc2db705336011fd"
+}
