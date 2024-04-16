@@ -42,10 +42,11 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Command::Start { url, port } => {
-            let app = app().await;
-            let server_url = url.unwrap_or("0.0.0.0".to_string());
-            let server_port = port.unwrap_or(3000);
+        Command::Start { log_level } => {
+            let config = Config::new(log_level);
+            let app = app(&config).await;
+            let server_url = &config.server_url;
+            let server_port = &config.port;
             let listener = tokio::net::TcpListener::bind(format!("{server_url}:{server_port}"))
                 .await
                 .unwrap();
@@ -57,8 +58,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn app() -> Router {
-    let app_state = match AppState::create_state().await {
+async fn app(config: &Config) -> Router {
+    let app_state = match AppState::create_state(config).await {
         Ok(s) => s,
         Err(e) => {
             tracing::error!("Error creating state: {}", e.to_string());
@@ -66,18 +67,17 @@ async fn app() -> Router {
         }
     };
     let state = Arc::new(app_state);
-    let config = Config::new(None);
 
     Router::new()
         .layer(TraceLayer::new_for_http())
         .merge(SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .merge(routes::health::health_routes(state.clone(), &config))
+        .merge(routes::health::health_routes(state.clone(), config))
         .merge(routes::organization::organization_routes(
             state.clone(),
-            &config,
+            config,
         ))
-        .merge(routes::study::study_routes(state.clone(), &config))
-        .merge(routes::user::user_routes(state.clone(), &config))
+        .merge(routes::study::study_routes(state.clone(), config))
+        .merge(routes::user::user_routes(state.clone(), config))
         .with_state(state)
 }
 
@@ -128,9 +128,14 @@ mod tests {
             .expect("Error creating valkey pool")
     }
 
+    fn config() -> Config {
+        dotenv().ok();
+        Config::new(None)
+    }
+
     #[tokio::test]
     async fn get_health() {
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -153,7 +158,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_organization() {
-        let app = app().await;
+        let app = app(&config()).await;
         let name = Uuid::new_v4().to_string();
         let response = app
             .oneshot(
@@ -182,7 +187,7 @@ mod tests {
             .await
             .unwrap();
 
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -215,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn delete_organization_not_found() {
         let org_id = generate_db_id();
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -240,7 +245,7 @@ mod tests {
             .await
             .unwrap();
 
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -262,7 +267,7 @@ mod tests {
     #[tokio::test]
     async fn get_organization_not_found() {
         let org_id = generate_db_id();
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -286,7 +291,7 @@ mod tests {
             .await
             .unwrap();
 
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -309,7 +314,7 @@ mod tests {
     #[tokio::test]
     async fn update_organization() {
         let org_name = Uuid::new_v4().to_string();
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
         let create_org = OrganizationCreate { name: org_name };
@@ -347,7 +352,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_study() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
         let create_org = OrganizationCreate {
@@ -387,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_study() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
         let valkey_pool = valkey_pool().await;
@@ -445,7 +450,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_study() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
         let valkey_pool = valkey_pool().await;
@@ -486,7 +491,7 @@ mod tests {
     #[tokio::test]
     async fn get_study_not_found() {
         let study_id = generate_db_id();
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -502,7 +507,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_user() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let pool = db_client.create_pool(Some(1), None).await.unwrap();
         let create_org = OrganizationCreate {
@@ -544,7 +549,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_user() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
         let valkey_pool = valkey_pool().await;
@@ -608,7 +613,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_user() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
         let valkey_pool = valkey_pool().await;
@@ -651,7 +656,7 @@ mod tests {
     #[tokio::test]
     async fn get_user_not_found() {
         let user_id = generate_db_id();
-        let app = app().await;
+        let app = app(&config()).await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -667,7 +672,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_to_study() {
-        let app = app().await;
+        let app = app(&config()).await;
         let db_client = db_client();
         let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
         let valkey_pool = valkey_pool().await;

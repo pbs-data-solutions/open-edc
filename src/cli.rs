@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use tracing::Level;
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about = "CLI for the Open EDC server")]
@@ -11,9 +12,7 @@ pub struct Cli {
 pub enum Command {
     /// Start the server
     Start {
-        #[clap(short, long, help = "Url for the server")]
-        url: Option<String>,
-        #[clap(short, long, help = "Port the server should run on")]
-        port: Option<usize>,
+        #[clap(short, long, help = "Set the log level")]
+        log_level: Option<Level>,
     },
 }
