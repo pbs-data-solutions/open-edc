@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub fn user_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
-    let prefix = format!("{}/user", config.api_v1_prefix);
+    let prefix = format!("{}/user", config.api_prefix);
     Router::new()
         .route(&prefix, post(create_user))
         .with_state(state.clone())
@@ -46,7 +46,7 @@ pub fn user_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState
 /// Add user to a study
 #[utoipa::path(
     post,
-    path = (format!("{}/user/study", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user/study", Config::new(None).api_prefix)),
     request_body = UserStudy,
     tag = "Users",
     responses(
@@ -131,7 +131,7 @@ pub async fn user_add_study(
 /// Create a new user
 #[utoipa::path(
     post,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user", Config::new(None).api_prefix)),
     request_body = UserCreate,
     tag = "Users",
     responses(
@@ -190,7 +190,7 @@ pub async fn create_user(
 /// Delete a user by database id
 #[utoipa::path(
     delete,
-    path = (format!("{}/user/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user/{{id}}", Config::new(None).api_prefix)),
     params(
         ("id" = String, Path, description = "User database id")
     ),
@@ -237,7 +237,7 @@ pub async fn delete_user(State(state): State<Arc<AppState>>, Path(id): Path<Stri
 /// Get a user by database id
 #[utoipa::path(
     get,
-    path = (format!("{}/user/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user/{{id}}", Config::new(None).api_prefix)),
     tag = "Users",
     responses(
         (status = 200, description = "User information", body = User),
@@ -281,7 +281,7 @@ pub async fn get_user(State(state): State<Arc<AppState>>, Path(id): Path<String>
 /// Get all users
 #[utoipa::path(
     get,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user", Config::new(None).api_prefix)),
     tag = "Users",
     responses(
         (status = 200, description = "All users information", body = [User]),
@@ -312,7 +312,7 @@ pub async fn get_users(State(state): State<Arc<AppState>>) -> Response {
 /// Remove a user from a study by the user's database id and study id
 #[utoipa::path(
     delete,
-    path = (format!("{}/user/study/{{user_id}}/{{study_id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user/study/{{user_id}}/{{study_id}}", Config::new(None).api_prefix)),
     params(
         ("user_id" = String, Path, description = "User database id"),
         ("study_id" = String, Path, description = "Study database id"),
@@ -363,7 +363,7 @@ pub async fn user_remove_study(
 /// Update a user by database id
 #[utoipa::path(
     put,
-    path = (format!("{}/user", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/user", Config::new(None).api_prefix)),
     request_body = UserUpdate,
     tag = "Users",
     responses((status = 200, description = "User added successfully", body = Organization)),
