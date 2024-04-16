@@ -26,7 +26,7 @@ struct Health {
 }
 
 pub fn health_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
-    let prefix = format!("{}/health", config.api_v1_prefix);
+    let prefix = format!("{}/health", config.api_prefix);
     Router::new().route(&prefix, get(health)).with_state(state)
 }
 

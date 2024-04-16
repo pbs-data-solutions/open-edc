@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub fn study_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
-    let prefix = format!("{}/study", config.api_v1_prefix);
+    let prefix = format!("{}/study", config.api_prefix);
     Router::new()
         .route(&prefix, post(create_study))
         .with_state(state.clone())
@@ -39,7 +39,7 @@ pub fn study_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppStat
 /// Create a new study
 #[utoipa::path(
     post,
-    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study", Config::new(None).api_prefix)),
     request_body = StudyCreate,
     tag = "Studies",
     responses(
@@ -97,7 +97,7 @@ pub async fn create_study(
 /// Delete a study by database id
 #[utoipa::path(
     delete,
-    path = (format!("{}/study/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study/{{id}}", Config::new(None).api_prefix)),
     params(
         ("id" = String, Path, description = "Study database id")
     ),
@@ -143,7 +143,7 @@ pub async fn delete_study(State(state): State<Arc<AppState>>, Path(id): Path<Str
 /// Get a study by database id
 #[utoipa::path(
     get,
-    path = (format!("{}/study/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study/{{id}}", Config::new(None).api_prefix)),
     tag = "Studies",
     responses(
         (status = 200, description = "Study information", body = Study),
@@ -186,7 +186,7 @@ pub async fn get_study(State(state): State<Arc<AppState>>, Path(id): Path<String
 /// Get all study
 #[utoipa::path(
     get,
-    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study", Config::new(None).api_prefix)),
     tag = "Studies",
     responses(
         (status = 200, description = "All studies information", body = [Study]),
@@ -217,7 +217,7 @@ pub async fn get_studies(State(state): State<Arc<AppState>>) -> Response {
 /// Update a study by database id
 #[utoipa::path(
     put,
-    path = (format!("{}/study", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/study", Config::new(None).api_prefix)),
     request_body = StudyUpdate,
     tag = "Studies",
     responses((status = 200, description = "Study added successfully", body = Organization)),

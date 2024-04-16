@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub fn organization_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<AppState>> {
-    let prefix = format!("{}/organization", config.api_v1_prefix);
+    let prefix = format!("{}/organization", config.api_prefix);
     Router::new()
         .route(&prefix, post(create_organization))
         .with_state(state.clone())
@@ -41,7 +41,7 @@ pub fn organization_routes(state: Arc<AppState>, config: &Config) -> Router<Arc<
 /// Add a new organization
 #[utoipa::path(
     post,
-    path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/organization", Config::new(None).api_prefix)),
     request_body = OrganizationCreate,
     tag = "Organizations",
     responses(
@@ -91,7 +91,7 @@ pub async fn create_organization(
 /// Delete an organization by its database id
 #[utoipa::path(
     delete,
-    path = (format!("{}/organization/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/organization/{{id}}", Config::new(None).api_prefix)),
     params(
         ("id" = String, Path, description = "Organization database id")
     ),
@@ -140,7 +140,7 @@ pub async fn delete_organization(
 /// Get an organization by its database id
 #[utoipa::path(
     get,
-    path = (format!("{}/organization/{{id}}", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/organization/{{id}}", Config::new(None).api_prefix)),
     params(
         ("id" = String, Path, description = "Organization database id")
     ),
@@ -189,7 +189,7 @@ pub async fn get_organization(
 /// Get all organizations
 #[utoipa::path(
     get,
-    path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/organization", Config::new(None).api_prefix)),
     tag = "Organizations",
     responses((status = 200, description = "Organization information", body = [Organization])),
 )]
@@ -218,7 +218,7 @@ pub async fn get_organizations(State(state): State<Arc<AppState>>) -> Response {
 /// Update an organization
 #[utoipa::path(
     put,
-    path = (format!("{}/organization", Config::new(None).api_v1_prefix)),
+    path = (format!("{}/organization", Config::new(None).api_prefix)),
     request_body = OrganizationUpdate,
     tag = "Organizations",
     responses((status = 200, description = "Organization added successfully", body = Organization)),
