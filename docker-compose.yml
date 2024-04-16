@@ -9,14 +9,16 @@ services:
       - valkey
     ports:
       - "3000:3000"
+    expose:
+      - 3000
     environment:
+      - SERVER_URL=0.0.0.0
       - DATABASE_ADDRESS=db
-      - DATABASE_PORT=5432
       - DATABASE_USER=postgres
-      - DATABASE_USER_PASSWORD=test_password
-      - DATABASE_NAME=open_edc
-      - DATABASE_URL=postgresql://postgres:test_password@db:5432/open_edc
+      - DATABASE_PASSWORD=test_password
+      - DATABASE_URL=postgresql://postgres:test_password@db:5432/open_edc # For sqlx
       - VALKEY_ADDRESS=valkey
+      - VALKEY_PASSWORD=valkeypassword
   db:
     image: postgres:16
     expose:

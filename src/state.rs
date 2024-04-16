@@ -1,12 +1,10 @@
-use std::env;
-
 use anyhow::{bail, Result};
 use axum::extract::FromRef;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use sqlx::postgres::PgPool;
 
-use crate::db::DbClient;
+use crate::{config::Config, db::DbClient};
 
 #[derive(Clone)]
 pub struct DbState {
@@ -20,16 +18,13 @@ impl FromRef<AppState> for DbState {
 }
 
 impl DbState {
-    pub async fn create_state() -> Result<Self> {
+    pub async fn create_state(config: &Config) -> Result<Self> {
         tracing::debug!("Connecting to postgres");
-        let address = env::var("DATABASE_ADDRESS").unwrap_or("127.0.0.1".to_string());
-        let user = env::var("DATASE_USER").unwrap_or("postgres".to_string());
-        let user_password = env::var("DATASE_USER_PASSWORD").unwrap_or("test_password".to_string());
-        let port = env::var("DATABASE_PORT")
-            .unwrap_or("5432".to_string())
-            .parse::<u16>()
-            .unwrap_or(5432);
-        let db_client = DbClient::new(&address, &user, &user_password, &port, "open_edc");
+        let address = &config.database_address;
+        let user = &config.database_user;
+        let user_password = &config.database_password;
+        let port = &config.database_port;
+        let db_client = DbClient::new(address, user, user_password, port, "open_edc");
 
         let pool = match db_client.create_pool(None, None).await {
             Ok(p) => p,
@@ -59,14 +54,11 @@ impl FromRef<AppState> for ValkeyState {
 }
 
 impl ValkeyState {
-    pub async fn create_state() -> Result<Self> {
+    pub async fn create_state(config: &Config) -> Result<Self> {
         tracing::debug!("Connecting to valkey");
-        let address = env::var("VALKEY_ADDRESS").unwrap_or("127.0.0.1".to_string());
-        let password = env::var("VALKEY_PASSWORD").unwrap_or("valkeypassword".to_string());
-        let port = env::var("VALKEY_PORT")
-            .unwrap_or("6379".to_string())
-            .parse::<u16>()
-            .unwrap_or(6379);
+        let address = &config.valkey_address;
+        let password = &config.valkey_password;
+        let port = &config.valkey_port;
         let manager =
             match RedisConnectionManager::new(format!("redis://:{password}@{address}:{port}")) {
                 Ok(m) => m,
@@ -105,9 +97,9 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn create_state() -> Result<Self> {
+    pub async fn create_state(config: &Config) -> Result<Self> {
         tracing::debug!("Creating db_state");
-        let db_state = match DbState::create_state().await {
+        let db_state = match DbState::create_state(config).await {
             Ok(d) => d,
             Err(e) => {
                 tracing::error!("Error creating db_state: {}", e.to_string());
@@ -117,7 +109,7 @@ impl AppState {
         tracing::debug!("Successfully created db_state");
 
         tracing::debug!("Creating valkey_state");
-        let valkey_state = match ValkeyState::create_state().await {
+        let valkey_state = match ValkeyState::create_state(config).await {
             Ok(v) => v,
             Err(e) => {
                 tracing::error!("Error creating valkey_state: {}", e.to_string());
