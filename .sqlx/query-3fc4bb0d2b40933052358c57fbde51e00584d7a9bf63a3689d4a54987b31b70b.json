@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM user_studies\n            where user_id = $1 and study_id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3fc4bb0d2b40933052358c57fbde51e00584d7a9bf63a3689d4a54987b31b70b"
+}

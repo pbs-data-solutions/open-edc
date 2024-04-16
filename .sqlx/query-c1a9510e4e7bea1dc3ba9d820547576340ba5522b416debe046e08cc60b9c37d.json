@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO organizations(id, name, active, date_added, date_modified)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, name, active, date_added, date_modified\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "date_added",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "date_modified",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c1a9510e4e7bea1dc3ba9d820547576340ba5522b416debe046e08cc60b9c37d"
+}

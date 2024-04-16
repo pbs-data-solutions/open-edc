@@ -1,32 +1,10 @@
 # Build artifacts
-build/
-dist/
+target/
 
 # Git/GitHub
 .git/
 .github/
 .gitignore
-
-# Python specific files
-**/__pycache__
-**/.mypy_cache/
-**/.pytest_cache/
-**/.ruff_cache/
-**/*.py[cod]
-**/*.egg
-**/tests/
-
-# C extensions
-*.so
-
-# pyenv
-**/.python-version
-
-# Virtual Environments
-**/.env
-**/.venv
-**/env/
-**/venv/
 
 # Editors
 **/.vscode/
@@ -39,3 +17,6 @@ Dockerfile
 
 # Project files
 .pre-commit-config.yaml
+justfile
+migrations/
+.env

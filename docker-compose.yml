@@ -1,6 +1,22 @@
 version: "3"
 
 services:
+  open-edc:
+    image: open-edc:dev
+    container_name: open-edc
+    depends_on:
+      - db
+      - valkey
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_ADDRESS=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_USER_PASSWORD=test_password
+      - DATABASE_NAME=open_edc
+      - DATABASE_URL=postgresql://postgres:test_password@db:5432/open_edc
+      - VALKEY_ADDRESS=valkey
   db:
     image: postgres:16
     expose:
