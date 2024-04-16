@@ -33,3 +33,4 @@ uuid = { version = "1.8.0", features = ["v4"] }
 http-body-util = "0.1.1"
 mime = "0.3.17"
 tower = { version = "0.4.13", features = ["util"] }
+uuid = { version = "1.8.0", features = ["v4"] }
