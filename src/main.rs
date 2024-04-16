@@ -389,11 +389,12 @@ mod tests {
     async fn get_study() {
         let app = app().await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&pool, &create_org)
+        let organization = create_organization_service(&db_pool, &create_org)
             .await
             .unwrap();
         let study_create = StudyCreate {
@@ -402,7 +403,9 @@ mod tests {
             study_description: Some("Description".to_string()),
             organization_id: organization.id,
         };
-        let study = create_study_service(&pool, &study_create).await.unwrap();
+        let study = create_study_service(&db_pool, &valkey_pool, &study_create)
+            .await
+            .unwrap();
 
         let response = app
             .oneshot(
@@ -569,7 +572,9 @@ mod tests {
             study_description: Some("Description".to_string()),
             organization_id: organization.id.clone(),
         };
-        let study = create_study_service(&db_pool, &study_create).await.unwrap();
+        let study = create_study_service(&db_pool, &valkey_pool, &study_create)
+            .await
+            .unwrap();
 
         let response = app
             .oneshot(
