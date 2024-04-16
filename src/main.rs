@@ -22,7 +22,6 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::{
     cli::{Cli, Command},
     config::Config,
-    db::{create_db_state, create_valkey_state},
     openapi::ApiDoc,
     state::AppState,
 };
@@ -59,31 +58,14 @@ async fn main() -> Result<()> {
 }
 
 async fn app() -> Router {
-    tracing::debug!("Creating db_state");
-    let db_state = match create_db_state().await {
-        Ok(d) => d,
+    let app_state = match AppState::create_state().await {
+        Ok(s) => s,
         Err(e) => {
-            tracing::error!("Error creating db_state: {}", e.to_string());
-            panic!("Unable to connect to database");
+            tracing::error!("Error creating state: {}", e.to_string());
+            panic!("Error creating state, cannot start server");
         }
     };
-    tracing::debug!("Successfully created db_state");
-
-    tracing::debug!("Creating valkey_state");
-    let valkey_state = match create_valkey_state().await {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::error!("Error creating valkey_state: {}", e.to_string());
-            panic!("Unable to connect to valkey");
-        }
-    };
-    tracing::debug!("Successfully created valkey_state");
-
-    let state = Arc::new(AppState {
-        db_state,
-        valkey_state,
-    });
-
+    let state = Arc::new(app_state);
     let config = Config::new(None);
 
     Router::new()
