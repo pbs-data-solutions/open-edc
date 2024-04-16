@@ -88,7 +88,7 @@ fn env_to_log_level(env_var: &str, default: Level) -> Result<Level> {
         } else if upper_log_level == "Warn" {
             Ok(Level::WARN)
         } else if upper_log_level == "INFO" {
-            Ok(Level::DEBUG)
+            Ok(Level::INFO)
         } else if upper_log_level == "Error" {
             Ok(Level::ERROR)
         } else {
