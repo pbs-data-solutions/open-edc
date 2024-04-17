@@ -30,11 +30,10 @@ use crate::{
 async fn main() -> Result<()> {
     dotenv().ok();
 
-    // try_from_default_env reads the RUST_LOG environment if set
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
-            EnvFilter::try_from_default_env()
+            EnvFilter::try_from_env("LOG_LEVEL")
                 .unwrap_or_else(|_| "open_edc=debug,tower_http=debug,axum::rejection=trace".into()),
         )
         .init();
@@ -42,8 +41,8 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Command::Start { log_level } => {
-            let config = Config::new(log_level);
+        Command::Start {} => {
+            let config = Config::new();
             let app = app(&config).await;
             let server_url = &config.server_url;
             let server_port = &config.port;
@@ -130,7 +129,7 @@ mod tests {
 
     fn config() -> Config {
         dotenv().ok();
-        Config::new(None)
+        Config::new()
     }
 
     #[tokio::test]
