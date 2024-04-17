@@ -1,13 +1,9 @@
 use std::env;
 
-use anyhow::{bail, Result};
-use tracing::Level;
-
 pub struct Config {
     pub server_url: String,
     pub port: u16,
     pub api_prefix: String,
-    pub log_level: Level,
     pub database_address: String,
     pub database_user: String,
     pub database_password: String,
@@ -18,18 +14,10 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(log_level: Option<Level>) -> Self {
+    pub fn new() -> Self {
         let server_url = env_to_string_config("SERVER_URL", "127.0.0.1".to_string());
         let port = env_to_u16_config("PORT", 3000);
         let api_prefix = env_to_string_config("API_PREFIX", "/api".to_string());
-        let set_log_level = if let Some(l) = log_level {
-            l
-        } else {
-            match env_to_log_level("LOG_LEVEL", Level::DEBUG) {
-                Ok(l) => l,
-                Err(e) => panic!("Error loading config: {e}"),
-            }
-        };
         let database_address = env_to_string_config("DATABASE_ADDRESS", "127.0.0.1".to_string());
         let database_user = env_to_string_config("DATABASE_USER", "postgres".to_string());
         let database_password = env_to_string_config_no_default("DATABASE_PASSWORD", "No database password provided. The DATABASE_PASSWORD environment vairable needs to be set");
@@ -45,7 +33,6 @@ impl Config {
             server_url,
             port,
             api_prefix,
-            log_level: set_log_level,
             database_address,
             database_user,
             database_password,
@@ -77,28 +64,6 @@ fn env_to_u16_config(env_var: &str, default: u16) -> u16 {
     }
 }
 
-fn env_to_log_level(env_var: &str, default: Level) -> Result<Level> {
-    if let Ok(log_level) = env::var(env_var) {
-        let upper_log_level = log_level.to_uppercase();
-
-        if upper_log_level == "TRACE" {
-            Ok(Level::TRACE)
-        } else if upper_log_level == "DEBUG" {
-            Ok(Level::DEBUG)
-        } else if upper_log_level == "Warn" {
-            Ok(Level::WARN)
-        } else if upper_log_level == "INFO" {
-            Ok(Level::INFO)
-        } else if upper_log_level == "Error" {
-            Ok(Level::ERROR)
-        } else {
-            bail!("{log_level} is not a valid log level");
-        }
-    } else {
-        Ok(default)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,14 +91,6 @@ mod tests {
     fn env_to_u16_config_default() {
         let expected = 1111;
         let got = env_to_u16_config(&Uuid::new_v4().to_string(), expected);
-
-        assert_eq!(got, expected);
-    }
-
-    #[test]
-    fn env_to_log_level_default() {
-        let expected = Level::DEBUG;
-        let got = env_to_log_level(&Uuid::new_v4().to_string(), expected).unwrap();
 
         assert_eq!(got, expected);
     }
