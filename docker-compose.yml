@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   open-edc:
     image: open-edc:dev
