@@ -60,11 +60,7 @@ pub async fn get_organization_service(pool: &PgPool, id: &str) -> Result<Option<
     .fetch_optional(pool)
     .await?;
 
-    if let Some(o) = organization {
-        Ok(Some(o))
-    } else {
-        Ok(None)
-    }
+    Ok(organization)
 }
 
 pub async fn get_organizations_service(pool: &PgPool) -> Result<Vec<Organization>> {
