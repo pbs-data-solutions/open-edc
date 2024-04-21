@@ -60,7 +60,7 @@ pub async fn get_organization_service(pool: &PgPool, id: &str) -> Result<Option<
     .fetch_optional(pool)
     .await?;
 
-    Ok(organization.map(|o| o))
+    Ok(organization)
 }
 
 pub async fn get_organizations_service(pool: &PgPool) -> Result<Vec<Organization>> {
