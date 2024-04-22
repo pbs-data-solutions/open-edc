@@ -166,32 +166,25 @@ pub async fn create_user_service(
 pub async fn delete_user_service(
     db_pool: &PgPool,
     valkey_pool: &Pool<RedisConnectionManager>,
-    id: &str,
+    user_id: &str,
 ) -> Result<()> {
     let result = sqlx::query!(
         r#"
             DELETE FROM users
             WHERE id = $1
         "#,
-        id,
+        user_id,
     )
     .execute(db_pool)
     .await?;
 
     if result.rows_affected() > 0 {
-        tracing::debug!("User successfully deleted from database");
-
-        let mut conn = valkey_pool.get().await?;
-        redis::cmd("DEL")
-            .arg("users")
-            .arg(id)
-            .query_async(&mut *conn)
-            .await?;
-
+        tracing::debug!("User successfully deleted from database, deleting from cache");
+        delete_cached_user(valkey_pool, user_id).await?;
         tracing::debug!("User successfully deleted from cache");
         Ok(())
     } else {
-        bail!(format!("No user with the id {id} found"));
+        bail!(format!("No user with the id {user_id} found"));
     }
 }
 
@@ -203,20 +196,11 @@ pub async fn get_user_service(
 ) -> Result<Option<User>> {
     if !skip_cache {
         tracing::debug!("Checking for user in cache");
-        let mut conn = valkey_pool.get().await?;
-        let cached_user_str: Option<String> = redis::cmd("HGET")
-            .arg("users")
-            .arg(user_id)
-            .query_async(&mut *conn)
-            .await?;
-
-        match cached_user_str {
-            Some(c) => {
-                tracing::debug!("User found in cache");
-                let cached_user: User = serde_json::from_str(&c)?;
-                return Ok(Some(cached_user));
-            }
-            None => tracing::debug!("User not found in cache"),
+        let cached_user = get_cached_user(valkey_pool, user_id).await?;
+        if cached_user.is_some() {
+            return Ok(cached_user);
+        } else {
+            tracing::debug!("User not found in cache");
         }
     }
 
@@ -280,6 +264,7 @@ pub async fn get_user_studies_service(
     db_pool: &PgPool,
     user_id: &str,
 ) -> Result<Option<Vec<Study>>> {
+    // TODO: Check cache first
     let db_studies: Vec<StudyInDb> = sqlx::query_as!(
         StudyInDb,
         r#"
@@ -551,4 +536,35 @@ async fn add_user_to_cache(pool: &Pool<RedisConnectionManager>, user: &User) -> 
         .await?;
 
     Ok(())
+}
+
+async fn delete_cached_user(pool: &Pool<RedisConnectionManager>, user_id: &str) -> Result<()> {
+    let mut conn = pool.get().await?;
+    redis::cmd("DEL")
+        .arg("users")
+        .arg(user_id)
+        .query_async(&mut *conn)
+        .await?;
+
+    Ok(())
+}
+
+async fn get_cached_user(
+    pool: &Pool<RedisConnectionManager>,
+    user_id: &str,
+) -> Result<Option<User>> {
+    let mut conn = pool.get().await?;
+    let cached_user_str: Option<String> = redis::cmd("HGET")
+        .arg("users")
+        .arg(user_id)
+        .query_async(&mut *conn)
+        .await?;
+
+    match cached_user_str {
+        Some(c) => {
+            let cached_user: User = serde_json::from_str(&c)?;
+            Ok(Some(cached_user))
+        }
+        None => Ok(None),
+    }
 }
