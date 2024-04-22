@@ -198,8 +198,9 @@ pub async fn get_study(State(state): State<Arc<AppState>>, Path(id): Path<String
 pub async fn get_studies(State(state): State<Arc<AppState>>) -> Response {
     tracing::debug!("Getting all studies");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match get_studies_service(&db_pool).await {
+    match get_studies_service(&db_pool, valkey_pool).await {
         Ok(u) => {
             tracing::debug!("Successfully retrieved all studies");
             (StatusCode::OK, Json(u)).into_response()

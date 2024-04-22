@@ -55,8 +55,9 @@ pub async fn create_organization(
 ) -> Response {
     tracing::debug!("Creating new organization");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match create_organization_service(&db_pool, &new_organization).await {
+    match create_organization_service(&db_pool, valkey_pool, &new_organization).await {
         Ok(o) => {
             tracing::debug!("Organization successfully created");
             (StatusCode::OK, Json(o)).into_response()
@@ -107,8 +108,9 @@ pub async fn delete_organization(
 ) -> Response {
     tracing::debug!("Deleting organization {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match delete_organization_service(&db_pool, &id).await {
+    match delete_organization_service(&db_pool, valkey_pool, &id).await {
         Ok(o) => {
             tracing::debug!("Successfully deleted organization {id}");
             (StatusCode::NO_CONTENT, Json(o)).into_response()
@@ -156,8 +158,9 @@ pub async fn get_organization(
 ) -> Response {
     tracing::debug!("Getting organization {id}");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match get_organization_service(&db_pool, &id).await {
+    match get_organization_service(&db_pool, valkey_pool, &id, false).await {
         Ok(organization) => {
             if let Some(o) = organization {
                 tracing::debug!("Successfully retrieved organization {id}");
@@ -229,8 +232,9 @@ pub async fn update_organization(
 ) -> Response {
     tracing::debug!("Updating organization");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match update_organization_service(&db_pool, &update_organization).await {
+    match update_organization_service(&db_pool, valkey_pool, &update_organization).await {
         Ok(o) => {
             tracing::debug!("Successfully updated organization");
             (StatusCode::OK, Json(o)).into_response()

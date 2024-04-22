@@ -290,8 +290,9 @@ pub async fn get_user(State(state): State<Arc<AppState>>, Path(id): Path<String>
 pub async fn get_users(State(state): State<Arc<AppState>>) -> Response {
     tracing::debug!("Getting all users");
     let db_pool = state.db_state.pool.clone();
+    let valkey_pool = &state.valkey_state.pool;
 
-    match get_users_service(&db_pool).await {
+    match get_users_service(&db_pool, valkey_pool).await {
         Ok(u) => {
             tracing::debug!("Successfully retrieved all users");
             (StatusCode::OK, Json(u)).into_response()
