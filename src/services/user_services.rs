@@ -10,7 +10,9 @@ use crate::{
         user::{AccessLevel, User, UserCreate, UserInDb, UserUpdate},
     },
     services::{
-        organization_services::get_organization_service, study_services::get_study_service,
+        cache_services::{add_cached_value, delete_cached_value, get_cached_value},
+        organization_services::get_organization_service,
+        study_services::get_study_service,
     },
     utils::{generate_db_id, hash_password},
 };
@@ -63,7 +65,7 @@ pub async fn add_user_to_study_service(
 
     if let Some(user) = get_user_service(db_pool, valkey_pool, user_id, true).await? {
         tracing::debug!("User successfully added to study in database, updating cache");
-        add_user_to_cache(valkey_pool, &user).await?;
+        add_cached_value(valkey_pool, "users", &user.id, &user).await?;
         tracing::debug!("Cache successfully updated");
         Ok(user)
     } else {
@@ -164,7 +166,7 @@ pub async fn create_user_service(
     };
 
     tracing::debug!("Adding user to cache");
-    add_user_to_cache(valkey_pool, &user).await?;
+    add_cached_value(valkey_pool, "users", &user.id, &user).await?;
     tracing::debug!("User successfully saved to cache");
 
     Ok(user)
@@ -187,7 +189,7 @@ pub async fn delete_user_service(
 
     if result.rows_affected() > 0 {
         tracing::debug!("User successfully deleted from database, deleting from cache");
-        delete_cached_user(valkey_pool, user_id).await?;
+        delete_cached_value(valkey_pool, "users", user_id).await?;
         tracing::debug!("User successfully deleted from cache");
         Ok(())
     } else {
@@ -203,7 +205,7 @@ pub async fn get_user_service(
 ) -> Result<Option<User>> {
     if !skip_cache {
         tracing::debug!("Checking for user in cache");
-        let cached_user = get_cached_user(valkey_pool, user_id).await?;
+        let cached_user = get_cached_value(valkey_pool, "users", user_id).await?;
         if cached_user.is_some() {
             return Ok(cached_user);
         } else {
@@ -254,7 +256,7 @@ pub async fn get_user_service(
                 };
 
                 tracing::debug!("User found in database, adding to cache");
-                add_user_to_cache(valkey_pool, &user).await?;
+                add_cached_value(valkey_pool, "users", &user.id, &user).await?;
                 tracing::debug!("User successfully added to cache");
                 Ok(Some(user))
             } else {
@@ -408,7 +410,7 @@ pub async fn remove_user_from_study_service(
         match get_user_service(db_pool, valkey_pool, user_id, true).await {
             Ok(user) => match user {
                 Some(u) => {
-                    add_user_to_cache(valkey_pool, &u).await?;
+                    add_cached_value(valkey_pool, "users", &u.id, &u).await?;
                     tracing::debug!("Cache successfully updated");
                 }
                 None => tracing::debug!("Error updating cache, user not found"),
@@ -541,51 +543,7 @@ pub async fn update_user_service(
     };
 
     tracing::debug!("Adding updated user to cache");
-    add_user_to_cache(valkey_pool, &user).await?;
+    add_cached_value(valkey_pool, "users", &user.id, &user).await?;
 
     Ok(user)
-}
-
-async fn add_user_to_cache(pool: &Pool<RedisConnectionManager>, user: &User) -> Result<()> {
-    let user_json = serde_json::to_string(user)?;
-    let mut conn = pool.get().await?;
-    redis::cmd("HSET")
-        .arg("users")
-        .arg(&user.id)
-        .arg(user_json)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
-}
-
-async fn delete_cached_user(pool: &Pool<RedisConnectionManager>, user_id: &str) -> Result<()> {
-    let mut conn = pool.get().await?;
-    redis::cmd("DEL")
-        .arg("users")
-        .arg(user_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
-}
-
-async fn get_cached_user(
-    pool: &Pool<RedisConnectionManager>,
-    user_id: &str,
-) -> Result<Option<User>> {
-    let mut conn = pool.get().await?;
-    let cached_user_str: Option<String> = redis::cmd("HGET")
-        .arg("users")
-        .arg(user_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    match cached_user_str {
-        Some(c) => {
-            let cached_user: User = serde_json::from_str(&c)?;
-            Ok(Some(cached_user))
-        }
-        None => Ok(None),
-    }
 }
