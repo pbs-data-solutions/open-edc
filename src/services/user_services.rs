@@ -76,7 +76,14 @@ pub async fn create_user_service(
     valkey_pool: &Pool<RedisConnectionManager>,
     new_user: &UserCreate,
 ) -> Result<User> {
-    let organization = match get_organization_service(db_pool, &new_user.organization_id).await {
+    let organization = match get_organization_service(
+        db_pool,
+        valkey_pool,
+        &new_user.organization_id,
+        false,
+    )
+    .await
+    {
         Ok(org) => {
             if let Some(o) = org {
                 o
@@ -144,7 +151,7 @@ pub async fn create_user_service(
 
     tracing::debug!("User successfully saved to database");
 
-    let studies = get_user_studies_service(db_pool, &db_user.id).await?;
+    let studies = get_user_studies_service(db_pool, valkey_pool, &db_user.id).await?;
     let user = User {
         id: db_user.id,
         user_name: db_user.user_name,
@@ -229,8 +236,9 @@ pub async fn get_user_service(
     .await?;
 
     if let Some(u) = db_user {
-        let organization = get_organization_service(db_pool, &u.organization_id).await;
-        let studies = get_user_studies_service(db_pool, &u.id).await?;
+        let organization =
+            get_organization_service(db_pool, valkey_pool, &u.organization_id, false).await;
+        let studies = get_user_studies_service(db_pool, valkey_pool, &u.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -262,6 +270,7 @@ pub async fn get_user_service(
 
 pub async fn get_user_studies_service(
     db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
     user_id: &str,
 ) -> Result<Option<Vec<Study>>> {
     // TODO: Check cache first
@@ -285,17 +294,23 @@ pub async fn get_user_studies_service(
     .await?;
 
     if !db_studies.is_empty() {
-        let organization =
-            match get_organization_service(db_pool, &db_studies[0].organization_id).await {
-                Ok(org) => {
-                    if let Some(o) = org {
-                        o
-                    } else {
-                        bail!("No organization found for user");
-                    }
+        let organization = match get_organization_service(
+            db_pool,
+            valkey_pool,
+            &db_studies[0].organization_id,
+            false,
+        )
+        .await
+        {
+            Ok(org) => {
+                if let Some(o) = org {
+                    o
+                } else {
+                    bail!("No organization found for user");
                 }
-                Err(_) => bail!("Error retrieving organization"),
-            };
+            }
+            Err(_) => bail!("Error retrieving organization"),
+        };
         let mut studies: Vec<Study> = Vec::new();
         for study in db_studies.into_iter() {
             let s = Study {
@@ -313,7 +328,10 @@ pub async fn get_user_studies_service(
     }
 }
 
-pub async fn get_users_service(db_pool: &PgPool) -> Result<Vec<User>> {
+pub async fn get_users_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+) -> Result<Vec<User>> {
     let db_users = sqlx::query_as!(
         UserInDb,
         r#"
@@ -338,8 +356,9 @@ pub async fn get_users_service(db_pool: &PgPool) -> Result<Vec<User>> {
     let mut users: Vec<User> = Vec::new();
 
     for db_user in db_users.into_iter() {
-        let organization = get_organization_service(db_pool, &db_user.organization_id).await;
-        let studies = get_user_studies_service(db_pool, &db_user.id).await?;
+        let organization =
+            get_organization_service(db_pool, valkey_pool, &db_user.organization_id, false).await;
+        let studies = get_user_studies_service(db_pool, valkey_pool, &db_user.id).await?;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -411,19 +430,21 @@ pub async fn update_user_service(
     valkey_pool: &Pool<RedisConnectionManager>,
     updated_user: &UserUpdate,
 ) -> Result<User> {
-    let organization = match get_organization_service(db_pool, &updated_user.organization_id).await
-    {
-        Ok(org) => {
-            if let Some(o) = org {
-                o
-            } else {
-                bail!("No organization found for user");
+    let organization =
+        match get_organization_service(db_pool, valkey_pool, &updated_user.organization_id, false)
+            .await
+        {
+            Ok(org) => {
+                if let Some(o) = org {
+                    o
+                } else {
+                    bail!("No organization found for user");
+                }
             }
-        }
-        Err(_) => bail!("Error retrieving organization"),
-    };
+            Err(_) => bail!("Error retrieving organization"),
+        };
 
-    let studies = get_user_studies_service(db_pool, &updated_user.id).await?;
+    let studies = get_user_studies_service(db_pool, valkey_pool, &updated_user.id).await?;
 
     tracing::debug!("Updating user in database");
     let db_user = if let Some(password) = &updated_user.password {

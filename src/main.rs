@@ -180,9 +180,10 @@ mod tests {
     async fn delete_organization() {
         let org_name = Uuid::new_v4().to_string();
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate { name: org_name };
-        let new_org = create_organization_service(&pool, &create_org)
+        let new_org = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
 
@@ -209,7 +210,7 @@ mod tests {
             "#,
             &new_org.id,
         )
-        .fetch_optional(&pool)
+        .fetch_optional(&db_pool)
         .await
         .unwrap();
 
@@ -238,9 +239,10 @@ mod tests {
     async fn get_organization() {
         let org_name = Uuid::new_v4().to_string();
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate { name: org_name };
-        let new_org = create_organization_service(&pool, &create_org)
+        let new_org = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
 
@@ -284,9 +286,10 @@ mod tests {
     async fn get_organizations() {
         let org_name = Uuid::new_v4().to_string();
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate { name: org_name };
-        create_organization_service(&pool, &create_org)
+        create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
 
@@ -315,9 +318,10 @@ mod tests {
         let org_name = Uuid::new_v4().to_string();
         let app = app(&config()).await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate { name: org_name };
-        let new_org = create_organization_service(&pool, &create_org)
+        let new_org = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
 
@@ -353,11 +357,12 @@ mod tests {
     async fn create_study() {
         let app = app(&config()).await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let study_id = Uuid::new_v4().to_string();
@@ -398,7 +403,7 @@ mod tests {
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&db_pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let study_create = StudyCreate {
@@ -456,7 +461,7 @@ mod tests {
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&db_pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let study_create = StudyCreate {
@@ -508,11 +513,12 @@ mod tests {
     async fn create_user() {
         let app = app(&config()).await;
         let db_client = db_client();
-        let pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let db_pool = db_client.create_pool(Some(1), None).await.unwrap();
+        let valkey_pool = valkey_pool().await;
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let user_name = Uuid::new_v4().to_string();
@@ -555,7 +561,7 @@ mod tests {
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&db_pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let user_create = UserCreate {
@@ -619,7 +625,7 @@ mod tests {
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&db_pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let user_create = UserCreate {
@@ -678,7 +684,7 @@ mod tests {
         let create_org = OrganizationCreate {
             name: Uuid::new_v4().to_string(),
         };
-        let organization = create_organization_service(&db_pool, &create_org)
+        let organization = create_organization_service(&db_pool, &valkey_pool, &create_org)
             .await
             .unwrap();
         let user_create = UserCreate {

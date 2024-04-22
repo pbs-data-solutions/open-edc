@@ -14,19 +14,22 @@ pub async fn create_study_service(
     valkey_pool: &Pool<RedisConnectionManager>,
     new_study: &StudyCreate,
 ) -> Result<Study> {
-    let organization = match get_organization_service(db_pool, &new_study.organization_id).await {
-        Ok(org) => {
-            if let Some(o) = org {
-                o
-            } else {
-                bail!(format!(
-                    "No organization with id {} found",
-                    &new_study.organization_id
-                ));
+    let organization =
+        match get_organization_service(db_pool, valkey_pool, &new_study.organization_id, false)
+            .await
+        {
+            Ok(org) => {
+                if let Some(o) = org {
+                    o
+                } else {
+                    bail!(format!(
+                        "No organization with id {} found",
+                        &new_study.organization_id
+                    ));
+                }
             }
-        }
-        Err(_) => bail!("Error retrieving organization"),
-    };
+            Err(_) => bail!("Error retrieving organization"),
+        };
 
     let prepped_study = StudyInDb::prepare_create(
         new_study.study_id.clone(),
@@ -87,25 +90,32 @@ pub async fn create_study_service(
 pub async fn delete_study_service(
     db_pool: &PgPool,
     valkey_pool: &Pool<RedisConnectionManager>,
-    study_id: &str,
+    id: &str,
 ) -> Result<()> {
     let result = sqlx::query!(
         r#"
             DELETE FROM studies
             WHERE id = $1
         "#,
-        study_id,
+        id,
     )
     .execute(db_pool)
     .await?;
 
     if result.rows_affected() > 0 {
-        tracing::debug!("Study successfully deleted from database, deleting from cache");
-        delete_cached_study(valkey_pool, study_id).await?;
+        tracing::debug!("Study successfully deleted from database");
+
+        let mut conn = valkey_pool.get().await?;
+        redis::cmd("DEL")
+            .arg("studies")
+            .arg(id)
+            .query_async(&mut *conn)
+            .await?;
+
         tracing::debug!("Study successfully deleted from cache");
         Ok(())
     } else {
-        bail!(format!("No study with the id {study_id} found"));
+        bail!(format!("No study with the id {id} found"));
     }
 }
 
@@ -117,11 +127,20 @@ pub async fn get_study_service(
 ) -> Result<Option<Study>> {
     if !skip_cache {
         tracing::debug!("Checking for study in cache");
-        let cached_study = get_cached_study(valkey_pool, study_id).await?;
-        if cached_study.is_some() {
-            return Ok(cached_study);
-        } else {
-            tracing::debug!("study not found in cache");
+        let mut conn = valkey_pool.get().await?;
+        let cached_study_str: Option<String> = redis::cmd("HGET")
+            .arg("studies")
+            .arg(study_id)
+            .query_async(&mut *conn)
+            .await?;
+
+        match cached_study_str {
+            Some(c) => {
+                tracing::debug!("Study found in cache");
+                let cached_study: Study = serde_json::from_str(&c)?;
+                return Ok(Some(cached_study));
+            }
+            None => tracing::debug!("Study not found in cache"),
         }
     }
 
@@ -146,7 +165,8 @@ pub async fn get_study_service(
     .await?;
 
     if let Some(s) = db_study {
-        let organization = get_organization_service(db_pool, &s.organization_id).await;
+        let organization =
+            get_organization_service(db_pool, valkey_pool, &s.organization_id, false).await;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -174,7 +194,10 @@ pub async fn get_study_service(
     }
 }
 
-pub async fn get_studies_service(db_pool: &PgPool) -> Result<Vec<Study>> {
+pub async fn get_studies_service(
+    db_pool: &PgPool,
+    valkey_pool: &Pool<RedisConnectionManager>,
+) -> Result<Vec<Study>> {
     let db_studies = sqlx::query_as!(
         StudyInDb,
         r#"
@@ -195,7 +218,8 @@ pub async fn get_studies_service(db_pool: &PgPool) -> Result<Vec<Study>> {
     let mut studies: Vec<Study> = Vec::new();
 
     for db_study in db_studies.into_iter() {
-        let organization = get_organization_service(db_pool, &db_study.organization_id).await;
+        let organization =
+            get_organization_service(db_pool, valkey_pool, &db_study.organization_id, false).await;
 
         if let Ok(org) = organization {
             if let Some(o) = org {
@@ -224,17 +248,19 @@ pub async fn update_study_service(
     valkey_pool: &Pool<RedisConnectionManager>,
     updated_study: &StudyUpdate,
 ) -> Result<Study> {
-    let organization = match get_organization_service(db_pool, &updated_study.organization_id).await
-    {
-        Ok(org) => {
-            if let Some(o) = org {
-                o
-            } else {
-                bail!("No organization found for study");
+    let organization =
+        match get_organization_service(db_pool, valkey_pool, &updated_study.organization_id, false)
+            .await
+        {
+            Ok(org) => {
+                if let Some(o) = org {
+                    o
+                } else {
+                    bail!("No organization found for study");
+                }
             }
-        }
-        Err(_) => bail!("Error retrieving organization"),
-    };
+            Err(_) => bail!("Error retrieving organization"),
+        };
 
     tracing::debug!("Updating study in database");
     let db_study = sqlx::query_as!(
@@ -293,35 +319,4 @@ async fn add_study_to_cache(pool: &Pool<RedisConnectionManager>, study: &Study) 
         .await?;
 
     Ok(())
-}
-
-async fn delete_cached_study(pool: &Pool<RedisConnectionManager>, study_id: &str) -> Result<()> {
-    let mut conn = pool.get().await?;
-    redis::cmd("DEL")
-        .arg("studies")
-        .arg(study_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
-}
-
-async fn get_cached_study(
-    pool: &Pool<RedisConnectionManager>,
-    study_id: &str,
-) -> Result<Option<Study>> {
-    let mut conn = pool.get().await?;
-    let cached_study_str: Option<String> = redis::cmd("HGET")
-        .arg("studies")
-        .arg(study_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    match cached_study_str {
-        Some(c) => {
-            let cached_study: Study = serde_json::from_str(&c)?;
-            Ok(Some(cached_study))
-        }
-        None => Ok(None),
-    }
 }
