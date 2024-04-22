@@ -6,7 +6,10 @@ use sqlx::postgres::PgPool;
 
 use crate::{
     models::study::{Study, StudyCreate, StudyInDb, StudyUpdate},
-    services::organization_services::get_organization_service,
+    services::{
+        cache_services::{add_cached_value, delete_cached_value, get_cached_value},
+        organization_services::get_organization_service,
+    },
 };
 
 pub async fn create_study_service(
@@ -81,7 +84,7 @@ pub async fn create_study_service(
     };
 
     tracing::debug!("Adding study to cache");
-    add_study_to_cache(valkey_pool, &study).await?;
+    add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
     tracing::debug!("Study successfully saved to cache");
 
     Ok(study)
@@ -90,32 +93,25 @@ pub async fn create_study_service(
 pub async fn delete_study_service(
     db_pool: &PgPool,
     valkey_pool: &Pool<RedisConnectionManager>,
-    id: &str,
+    study_id: &str,
 ) -> Result<()> {
     let result = sqlx::query!(
         r#"
             DELETE FROM studies
             WHERE id = $1
         "#,
-        id,
+        study_id,
     )
     .execute(db_pool)
     .await?;
 
     if result.rows_affected() > 0 {
-        tracing::debug!("Study successfully deleted from database");
-
-        let mut conn = valkey_pool.get().await?;
-        redis::cmd("DEL")
-            .arg("studies")
-            .arg(id)
-            .query_async(&mut *conn)
-            .await?;
-
+        tracing::debug!("Study successfully deleted from database, deleting from cache");
+        delete_cached_value(valkey_pool, "studies", study_id).await?;
         tracing::debug!("Study successfully deleted from cache");
         Ok(())
     } else {
-        bail!(format!("No study with the id {id} found"));
+        bail!(format!("No study with the id {study_id} found"));
     }
 }
 
@@ -127,20 +123,11 @@ pub async fn get_study_service(
 ) -> Result<Option<Study>> {
     if !skip_cache {
         tracing::debug!("Checking for study in cache");
-        let mut conn = valkey_pool.get().await?;
-        let cached_study_str: Option<String> = redis::cmd("HGET")
-            .arg("studies")
-            .arg(study_id)
-            .query_async(&mut *conn)
-            .await?;
-
-        match cached_study_str {
-            Some(c) => {
-                tracing::debug!("Study found in cache");
-                let cached_study: Study = serde_json::from_str(&c)?;
-                return Ok(Some(cached_study));
-            }
-            None => tracing::debug!("Study not found in cache"),
+        let cached_study = get_cached_value(valkey_pool, "studies", study_id).await?;
+        if cached_study.is_some() {
+            return Ok(cached_study);
+        } else {
+            tracing::debug!("Study not found in cache");
         }
     }
 
@@ -179,7 +166,7 @@ pub async fn get_study_service(
                 };
 
                 tracing::debug!("Study found in database, adding to cache");
-                add_study_to_cache(valkey_pool, &study).await?;
+                add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
                 tracing::debug!("Study successfully added to cache");
 
                 Ok(Some(study))
@@ -303,20 +290,7 @@ pub async fn update_study_service(
     };
 
     tracing::debug!("Adding updated study to cache");
-    add_study_to_cache(valkey_pool, &study).await?;
+    add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
 
     Ok(study)
-}
-
-async fn add_study_to_cache(pool: &Pool<RedisConnectionManager>, study: &Study) -> Result<()> {
-    let study_json = serde_json::to_string(study)?;
-    let mut conn = pool.get().await?;
-    redis::cmd("HSET")
-        .arg("studies")
-        .arg(&study.id)
-        .arg(study_json)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
 }

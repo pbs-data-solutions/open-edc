@@ -4,7 +4,10 @@ use bb8_redis::RedisConnectionManager;
 use chrono::Utc;
 use sqlx::postgres::PgPool;
 
-use crate::models::organization::{Organization, OrganizationCreate, OrganizationUpdate};
+use crate::{
+    models::organization::{Organization, OrganizationCreate, OrganizationUpdate},
+    services::cache_services::{add_cached_value, delete_cached_value, get_cached_value},
+};
 
 pub async fn create_organization_service(
     db_pool: &PgPool,
@@ -30,7 +33,7 @@ pub async fn create_organization_service(
     .await?;
 
     tracing::debug!("Adding organization to cache");
-    add_organization_to_cache(valkey_pool, &organization).await?;
+    add_cached_value(valkey_pool, "organizations", &added_org.id, &organization).await?;
     tracing::debug!("Organization successfully saved to cache");
 
     Ok(added_org)
@@ -53,8 +56,9 @@ pub async fn delete_organization_service(
 
     if result.rows_affected() > 0 {
         tracing::debug!("Organization successfully deleted from database, deleting from cache");
-        delete_cached_organization(valkey_pool, organization_id).await?;
-        tracing::debug!("Study successfully deleted from cache");
+
+        delete_cached_value(valkey_pool, "organizations", organization_id).await?;
+        tracing::debug!("Organization successfully deleted from cache");
         Ok(())
     } else {
         bail!(format!(
@@ -71,7 +75,8 @@ pub async fn get_organization_service(
 ) -> Result<Option<Organization>> {
     if !skip_cache {
         tracing::debug!("Checking for organization in cache");
-        let cached_organization = get_cached_organization(valkey_pool, organization_id).await?;
+        let cached_organization =
+            get_cached_value(valkey_pool, "organizations", organization_id).await?;
         if cached_organization.is_some() {
             return Ok(cached_organization);
         } else {
@@ -112,7 +117,7 @@ pub async fn update_organization_service(
     valkey_pool: &Pool<RedisConnectionManager>,
     updated_organization: &OrganizationUpdate,
 ) -> Result<Organization> {
-    tracing::debug!("Updating study in database");
+    tracing::debug!("Updating organization in database");
     let updated_org = sqlx::query_as!(
         Organization,
         r#"
@@ -131,57 +136,7 @@ pub async fn update_organization_service(
     tracing::debug!("Successfully updated organization in database");
 
     tracing::debug!("Adding updated organization to cache");
-    add_organization_to_cache(valkey_pool, &updated_org).await?;
+    add_cached_value(valkey_pool, "organizations", &updated_org.id, &updated_org).await?;
 
     Ok(updated_org)
-}
-
-async fn add_organization_to_cache(
-    pool: &Pool<RedisConnectionManager>,
-    organization: &Organization,
-) -> Result<()> {
-    let study_json = serde_json::to_string(organization)?;
-    let mut conn = pool.get().await?;
-    redis::cmd("HSET")
-        .arg("organizations")
-        .arg(&organization.id)
-        .arg(study_json)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
-}
-
-async fn delete_cached_organization(
-    pool: &Pool<RedisConnectionManager>,
-    organization_id: &str,
-) -> Result<()> {
-    let mut conn = pool.get().await?;
-    redis::cmd("DEL")
-        .arg("organizations")
-        .arg(organization_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    Ok(())
-}
-
-async fn get_cached_organization(
-    pool: &Pool<RedisConnectionManager>,
-    organization_id: &str,
-) -> Result<Option<Organization>> {
-    let mut conn = pool.get().await?;
-    let cached_study_str: Option<String> = redis::cmd("HGET")
-        .arg("organizations")
-        .arg(organization_id)
-        .query_async(&mut *conn)
-        .await?;
-
-    match cached_study_str {
-        Some(c) => {
-            let cached_study: Organization = serde_json::from_str(&c)?;
-            Ok(Some(cached_study))
-        }
-        None => Ok(None),
-    }
 }
