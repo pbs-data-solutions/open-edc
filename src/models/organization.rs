@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::utils::generate_db_id;
+use crate::{services::cache_services::Cacheable, utils::generate_db_id};
 
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -33,6 +33,16 @@ impl Organization {
             date_added: Utc::now(),
             date_modified: Utc::now(),
         }
+    }
+}
+
+impl Cacheable for Organization {
+    fn get_key(&self) -> &str {
+        &self.id
+    }
+
+    fn cache_field(&self) -> &str {
+        "organizations"
     }
 }
 

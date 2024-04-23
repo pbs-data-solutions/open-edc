@@ -3,17 +3,20 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 
-pub async fn add_cached_value<T: Serialize>(
+pub trait Cacheable {
+    fn get_key(&self) -> &str;
+    fn cache_field(&self) -> &str;
+}
+
+pub async fn add_cached_value<T: Cacheable + Serialize>(
     pool: &Pool<RedisConnectionManager>,
-    cache_field: &str,
-    field_id: &str,
     cache_value: &T,
 ) -> Result<()> {
     let study_json = serde_json::to_string(cache_value)?;
     let mut conn = pool.get().await?;
     redis::cmd("HSET")
-        .arg(cache_field)
-        .arg(field_id)
+        .arg(cache_value.cache_field())
+        .arg(cache_value.get_key())
         .arg(study_json)
         .query_async(&mut *conn)
         .await?;

@@ -84,7 +84,7 @@ pub async fn create_study_service(
     };
 
     tracing::debug!("Adding study to cache");
-    add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
+    add_cached_value(valkey_pool, &study).await?;
     tracing::debug!("Study successfully saved to cache");
 
     Ok(study)
@@ -166,7 +166,7 @@ pub async fn get_study_service(
                 };
 
                 tracing::debug!("Study found in database, adding to cache");
-                add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
+                add_cached_value(valkey_pool, &study).await?;
                 tracing::debug!("Study successfully added to cache");
 
                 Ok(Some(study))
@@ -290,7 +290,7 @@ pub async fn update_study_service(
     };
 
     tracing::debug!("Adding updated study to cache");
-    add_cached_value(valkey_pool, "studies", &study.id, &study).await?;
+    add_cached_value(valkey_pool, &study).await?;
 
     Ok(study)
 }

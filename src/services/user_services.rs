@@ -65,7 +65,7 @@ pub async fn add_user_to_study_service(
 
     if let Some(user) = get_user_service(db_pool, valkey_pool, user_id, true).await? {
         tracing::debug!("User successfully added to study in database, updating cache");
-        add_cached_value(valkey_pool, "users", &user.id, &user).await?;
+        add_cached_value(valkey_pool, &user).await?;
         tracing::debug!("Cache successfully updated");
         Ok(user)
     } else {
@@ -166,7 +166,7 @@ pub async fn create_user_service(
     };
 
     tracing::debug!("Adding user to cache");
-    add_cached_value(valkey_pool, "users", &user.id, &user).await?;
+    add_cached_value(valkey_pool, &user).await?;
     tracing::debug!("User successfully saved to cache");
 
     Ok(user)
@@ -256,7 +256,7 @@ pub async fn get_user_service(
                 };
 
                 tracing::debug!("User found in database, adding to cache");
-                add_cached_value(valkey_pool, "users", &user.id, &user).await?;
+                add_cached_value(valkey_pool, &user).await?;
                 tracing::debug!("User successfully added to cache");
                 Ok(Some(user))
             } else {
@@ -410,7 +410,7 @@ pub async fn remove_user_from_study_service(
         match get_user_service(db_pool, valkey_pool, user_id, true).await {
             Ok(user) => match user {
                 Some(u) => {
-                    add_cached_value(valkey_pool, "users", &u.id, &u).await?;
+                    add_cached_value(valkey_pool, &u).await?;
                     tracing::debug!("Cache successfully updated");
                 }
                 None => tracing::debug!("Error updating cache, user not found"),
@@ -543,7 +543,7 @@ pub async fn update_user_service(
     };
 
     tracing::debug!("Adding updated user to cache");
-    add_cached_value(valkey_pool, "users", &user.id, &user).await?;
+    add_cached_value(valkey_pool, &user).await?;
 
     Ok(user)
 }
