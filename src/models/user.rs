@@ -5,6 +5,7 @@ use utoipa::ToSchema;
 
 use crate::{
     models::{organization::Organization, study::Study},
+    services::cache_services::Cacheable,
     utils::{generate_db_id, hash_password},
 };
 
@@ -70,6 +71,16 @@ pub struct User {
     pub organization: Organization,
     pub studies: Option<Vec<Study>>,
     pub active: bool,
+}
+
+impl Cacheable for User {
+    fn get_key(&self) -> &str {
+        &self.id
+    }
+
+    fn cache_field(&self) -> &str {
+        "users"
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]

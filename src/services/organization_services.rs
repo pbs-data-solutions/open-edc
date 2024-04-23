@@ -33,7 +33,7 @@ pub async fn create_organization_service(
     .await?;
 
     tracing::debug!("Adding organization to cache");
-    add_cached_value(valkey_pool, "organizations", &added_org.id, &organization).await?;
+    add_cached_value(valkey_pool, &organization).await?;
     tracing::debug!("Organization successfully saved to cache");
 
     Ok(added_org)
@@ -136,7 +136,7 @@ pub async fn update_organization_service(
     tracing::debug!("Successfully updated organization in database");
 
     tracing::debug!("Adding updated organization to cache");
-    add_cached_value(valkey_pool, "organizations", &updated_org.id, &updated_org).await?;
+    add_cached_value(valkey_pool, &updated_org).await?;
 
     Ok(updated_org)
 }

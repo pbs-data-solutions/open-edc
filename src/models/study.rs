@@ -3,7 +3,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{models::organization::Organization, utils::generate_db_id};
+use crate::{
+    models::organization::Organization, services::cache_services::Cacheable, utils::generate_db_id,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -45,6 +47,16 @@ pub struct Study {
     pub study_name: Option<String>,
     pub study_description: Option<String>,
     pub organization: Organization,
+}
+
+impl Cacheable for Study {
+    fn get_key(&self) -> &str {
+        &self.id
+    }
+
+    fn cache_field(&self) -> &str {
+        "studies"
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
