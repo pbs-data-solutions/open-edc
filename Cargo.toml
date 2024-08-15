@@ -12,7 +12,7 @@ anyhow = "1.0.86"
 argon2 = { version = "0.5.3", features = ["std"] }
 axum = "0.7.5"
 bb8 = "0.8.5"
-bb8-redis = "0.15.0"
+bb8-redis = "0.16.0"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.15", features = ["derive"] }
 dotenvy = "0.15.7"
